@@ -72,4 +72,6 @@ open class InMemoryEditor(
     override fun addPage() = update { copy(pageCount = pageCount + 1) }
     override fun removePage() = update { copy(pageCount = (pageCount - 1).coerceAtLeast(1)) }
     override fun dismissMessage() = update { copy(message = null) }
+    override fun selectionCommand(command: SelectionCommand) = closeSelectionMenu()
+    override fun closeSelectionMenu() = update { copy(selectionMenu = null) }
 }

@@ -54,4 +54,10 @@ interface EditorActions {
 
     /** The notice in [EditorUiState.message] was shown long enough, or tapped. */
     fun dismissMessage() {}
+
+    /** An item of the selection menu was tapped: run it on the selection and close the menu. */
+    fun selectionCommand(command: SelectionCommand) {}
+
+    /** The selection menu was dismissed without a choice. */
+    fun closeSelectionMenu() {}
 }

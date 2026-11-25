@@ -7,11 +7,14 @@ import app.blot.core.model.Argb
 import app.blot.ui.library.PageKind
 import app.blot.ui.theme.QuickInk
 
-/** The toolbar's tools. [Shape] and [Line] draw the kind chosen in their menus. */
+/**
+ * The toolbar's tools. [Shape] and [Line] draw the kind chosen in their menus. [Select] is the
+ * pointer, selecting by its [SelectMode]; the pen's pointer button switches to it.
+ */
 enum class Tool { Pen, Eraser, Select, Shape, Line, Text, Image }
 
-/** What the pen does while [Tool.Pen] is active; a side button cycles through these. */
-enum class PenMode { Pen, Hand, Pointer }
+/** What the pen does while [Tool.Pen] is active. */
+enum class PenMode { Pen, Hand }
 
 enum class EraserMode { WholeStroke, PartOfStroke }
 
@@ -43,6 +46,21 @@ sealed interface ToolbarPlacement {
 
     data class Floating(val x: Float, val y: Float, override val vertical: Boolean) : ToolbarPlacement
 }
+
+/** What the selection menu's items do; each is one undo step. */
+enum class SelectionCommand { BringForward, SendBackward, Group, Ungroup, Duplicate, Delete }
+
+/**
+ * The selection menu, open after a long press on the selection. [anchor] is the selection's box
+ * in dp within the editor, which the menu sits above (or below, without room above).
+ * [canGroup] shows Group, [canUngroup] shows Ungroup in its place.
+ */
+@Immutable
+data class SelectionMenu(
+    val anchor: androidx.compose.ui.geometry.Rect,
+    val canGroup: Boolean = false,
+    val canUngroup: Boolean = false,
+)
 
 enum class ExportFormat { Png, Pdf, Svg }
 
@@ -111,6 +129,8 @@ data class EditorUiState(
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val hasSelection: Boolean = false,
+    /** The long-press menu over the selection, or null when closed. */
+    val selectionMenu: SelectionMenu? = null,
 
     /** Null until the user moves the toolbar: then it sits where the design puts it for the orientation. */
     val toolbarPlacement: ToolbarPlacement? = null,

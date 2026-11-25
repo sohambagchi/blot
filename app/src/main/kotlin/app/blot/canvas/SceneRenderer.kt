@@ -72,9 +72,10 @@ class SceneRenderer(
             if (preview != null && e.id in preview.hidden) continue
             if (preview != null && e.id in preview.transformed) {
                 val t = preview.transform
-                if (!t.rect(e.bounds).intersects(visible)) continue
+                if (!t.bounds(e.bounds).intersects(visible)) continue
                 canvas.save()
                 canvas.translate(t.originX + t.dx, t.originY + t.dy)
+                if (t.rotation != 0f) canvas.rotate(Math.toDegrees(t.rotation.toDouble()).toFloat())
                 canvas.scale(t.scale, t.scale)
                 canvas.translate(-t.originX, -t.originY)
                 drawElement(canvas, e, dark, palette)
@@ -109,9 +110,18 @@ class SceneRenderer(
             is Stroke -> drawStroke(canvas, e, dark)
             is Shape -> drawShape(canvas, e, dark)
             is Line -> drawLine(canvas, e, dark)
-            is TextBox -> text.draw(canvas, e, color(e.color.value, dark))
-            is Image -> drawImage(canvas, e, palette)
+            is TextBox -> rotated(canvas, e.frame, e.rotation) { text.draw(canvas, e, color(e.color.value, dark)) }
+            is Image -> rotated(canvas, e.frame, e.rotation) { drawImage(canvas, e, palette) }
         }
+    }
+
+    /** Runs [draw] with [canvas] turned by [rotation] radians about [frame]'s centre. */
+    private inline fun rotated(canvas: Canvas, frame: app.blot.core.model.Rect, rotation: Float, draw: () -> Unit) {
+        if (rotation == 0f) return draw()
+        canvas.save()
+        canvas.rotate(Math.toDegrees(rotation.toDouble()).toFloat(), frame.centerX, frame.centerY)
+        draw()
+        canvas.restore()
     }
 
     private fun drawStroke(canvas: Canvas, s: Stroke, dark: Boolean) {
@@ -259,7 +269,7 @@ class SceneRenderer(
 
 /**
  * How [SceneRenderer.draw] shows a note while a tool gesture runs, without changing the note:
- * the elements in [transformed] are drawn through [transform] (a selection being moved or
+ * the elements in [transformed] are drawn through [transform] (a selection being moved, rotated or
  * scaled), and those in [hidden] are not drawn (a text box being edited).
  */
 class ScenePreview(

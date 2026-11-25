@@ -24,9 +24,9 @@ class InputRouterTest {
         var dy = 0f
         var factor = 1f
 
-        override fun cycleTool() {
-            tool = tool.next()
-            calls += "cycle:$tool"
+        override fun switchToPointer() {
+            tool = Tool.SELECT
+            calls += "pointer"
         }
 
         override fun inkStart(mode: InkMode, pointer: PointerKind, sample: InputSample) {
@@ -176,33 +176,41 @@ class InputRouterTest {
     }
 
     @Test
-    fun secondaryPressCyclesToolsWhileHovering() {
+    fun secondaryPressSwitchesToThePointerWhileHoveringAndItStays() {
         val hover = p(0, STYLUS, 5f)
         ev(HOVER, hover)
         ev(HOVER, hover, buttons = StylusButtons.SECONDARY)
         ev(HOVER, hover, buttons = StylusButtons.SECONDARY) // held: no repeat
         ev(HOVER, hover)
-        ev(HOVER, hover, buttons = StylusButtons.SECONDARY)
-        ev(HOVER, hover)
+        assertEquals(listOf("pointer"), t.calls)
+        // Released, it stays the pointer: the next stroke selects.
+        assertEquals(Tool.SELECT, t.tool)
+        t.calls.clear()
+        stroke(STYLUS)
+        assertEquals("editStart:10", t.calls.first())
+        // A press arriving as a button event counts too.
+        t.tool = Tool.PEN
+        t.calls.clear()
         ev(InputAction.BUTTON, hover, buttons = StylusButtons.SECONDARY)
         ev(InputAction.BUTTON, hover)
-        assertEquals(listOf("cycle:PAN", "cycle:SELECT", "cycle:PEN"), t.calls)
+        assertEquals(listOf("pointer"), t.calls)
+        assertEquals(Tool.SELECT, t.tool)
     }
 
     @Test
-    fun secondaryPressWhileTouchingCyclesForTheNextStroke() {
+    fun secondaryPressWhileTouchingSwitchesForTheNextStroke() {
         ev(DOWN, p(0, STYLUS, 10f))
         ev(MOVE, p(0, STYLUS, 11f), buttons = StylusButtons.SECONDARY)
         ev(UP, p(0, STYLUS, 11f))
-        assertEquals(listOf("start:DRAW:STYLUS:10", "cycle:PAN", "move:11", "end"), t.calls)
-        assertEquals(Tool.PAN, t.tool)
+        assertEquals(listOf("start:DRAW:STYLUS:10", "pointer", "move:11", "end"), t.calls)
+        assertEquals(Tool.SELECT, t.tool)
     }
 
     @Test
     fun swapFlagSwapsTheButtons() {
         t.swapButtons = true
         ev(HOVER, p(0, STYLUS, 5f), buttons = StylusButtons.PRIMARY)
-        assertEquals(Tool.PAN, t.tool)
+        assertEquals(Tool.SELECT, t.tool)
         ev(HOVER, p(0, STYLUS, 5f))
         t.calls.clear()
         stroke(STYLUS, buttons = StylusButtons.SECONDARY)
@@ -216,7 +224,7 @@ class InputRouterTest {
         ev(DOWN, p(1, FINGER, 5f))
         ev(UP, p(1, FINGER, 5f))
         ev(HOVER, p(0, STYLUS, 5f), buttons = StylusButtons.SECONDARY)
-        assertEquals(listOf("cycle:PAN"), t.calls.filter { it.startsWith("cycle") })
+        assertEquals(listOf("pointer"), t.calls.filter { it == "pointer" })
     }
 
     @Test

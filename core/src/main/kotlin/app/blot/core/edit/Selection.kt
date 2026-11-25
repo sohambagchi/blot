@@ -36,8 +36,8 @@ object Selection {
         is Stroke -> Drawn(listOf(FloatArray(e.points.size * 2) { if (it % 2 == 0) e.points[it / 2].x else e.points[it / 2].y }), false, e.width / 2f)
         is Shape -> Drawn(listOf(shapeOutline(e)), true, e.width / 2f)
         is Line -> Drawn(listOf(FloatArray(e.points.size * 2) { if (it % 2 == 0) e.points[it / 2].x else e.points[it / 2].y }), false, e.width / 2f)
-        is TextBox -> Drawn(listOf(corners(e.frame)), true, 0f)
-        is Image -> Drawn(listOf(corners(e.frame)), true, 0f)
+        is TextBox -> Drawn(listOf(e.frame.rotatedCorners(e.rotation)), true, 0f)
+        is Image -> Drawn(listOf(e.frame.rotatedCorners(e.rotation)), true, 0f)
     }
 
     /** A shape's centre line as a closed polygon, rotated. */
@@ -131,7 +131,8 @@ object Selection {
                 val d = drawnOf(e)
                 PlaneMath.polylineNear(d.lines[0], e.points.size, false, x, y, x, y, e.width / 2f + tol)
             }
-            is TextBox, is Image -> true // bounds is the frame
+            is TextBox -> e.frame.containsRotated(e.rotation, x, y, tol)
+            is Image -> e.frame.containsRotated(e.rotation, x, y, tol)
         }
     }
 

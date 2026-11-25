@@ -8,7 +8,10 @@ enum class Tool {
     ERASER,
     PAN,
 
-    /** Lasso or rectangle selection, by [CanvasController.selectMode]; drags on a selection move or scale it. */
+    /**
+     * The pointer: lasso or rectangle selection, by [CanvasController.selectMode]. Drags on a
+     * selection move, scale or rotate it; only this tool changes a selection.
+     */
     SELECT,
 
     /** Draws a [CanvasController.shapeKind] by dragging from corner to corner. */
@@ -18,14 +21,7 @@ enum class Tool {
     LINE,
 
     /** A tap creates a text box, or edits the one under it. */
-    TEXT;
-
-    /** The tool the pen's cycle button moves to: pen → pan → select → pen. Any other tool goes to the pen. */
-    fun next(): Tool = when (this) {
-        PEN -> PAN
-        PAN -> SELECT
-        SELECT, ERASER, SHAPE, LINE, TEXT -> PEN
-    }
+    TEXT,
 }
 
 /** What the eraser takes. */

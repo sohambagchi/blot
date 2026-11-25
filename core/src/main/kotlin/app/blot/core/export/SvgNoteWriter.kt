@@ -87,10 +87,21 @@ class SvgNoteWriter(
             is Stroke -> stroke(x, e)
             is Shape -> shape(x, e)
             is Line -> line(x, e)
-            is TextBox -> textBox(x, e)
-            is Image -> image(x, e)
+            is TextBox -> rotated(x, e.frame, e.rotation) { textBox(x, e) }
+            is Image -> rotated(x, e.frame, e.rotation) { image(x, e) }
         }
     }
+
+    /** Draws [body] inside a group turned by [rotation] about [frame]'s centre, or bare when it is 0. */
+    private inline fun rotated(x: SvgXml, frame: Rect, rotation: Float, body: () -> Unit) {
+        if (rotation == 0f) return body()
+        x.open("g", "transform" to rotate(rotation, frame))
+        body()
+        x.close()
+    }
+
+    private fun rotate(rotation: Float, frame: Rect) =
+        "rotate(${SvgXml.num(Math.toDegrees(rotation.toDouble()).toFloat())} ${SvgXml.num(frame.centerX)} ${SvgXml.num(frame.centerY)})"
 
     private fun fill(argb: Int): Array<Pair<String, Any?>> {
         val c = color(argb)
@@ -110,11 +121,7 @@ class SvgNoteWriter(
 
     private fun shape(x: SvgXml, s: Shape) {
         val f = s.frame
-        val transform = if (s.rotation == 0f) {
-            null
-        } else {
-            "rotate(${SvgXml.num(Math.toDegrees(s.rotation.toDouble()).toFloat())} ${SvgXml.num(f.centerX)} ${SvgXml.num(f.centerY)})"
-        }
+        val transform = if (s.rotation == 0f) null else rotate(s.rotation, f)
         val paint = arrayOf(
             *(s.fill?.let { fill(it.value) } ?: arrayOf("fill" to "none")),
             *(if (s.width > 0f) stroke(s.color.value, s.width) else emptyArray()),

@@ -21,6 +21,8 @@ import app.blot.ui.editor.InMemoryEditor
 import app.blot.ui.editor.LineKind
 import app.blot.ui.editor.PenMode
 import app.blot.ui.editor.SelectMode
+import app.blot.ui.editor.SelectionCommand
+import app.blot.ui.editor.SelectionMenu
 import app.blot.ui.editor.ShapeKind
 import app.blot.ui.editor.Tool
 import app.blot.ui.library.PageKind
@@ -33,8 +35,8 @@ import app.blot.core.model.ShapeKind as ModelShape
 
 /**
  * The editor's state holder: the chrome's [app.blot.ui.editor.EditorActions] drive
- * [controller], and [uiState] is the chrome's state with the canvas's live values (tool after a
- * side-button cycle, undo and redo, zoom, page setup) laid over it. Main thread only.
+ * [controller], and [uiState] is the chrome's state with the canvas's live values (the tool after a
+ * press of the pen's pointer button, undo and redo, zoom, page setup) laid over it. Main thread only.
  *
  * @param onExport runs an export of the current note with the dialog's options.
  * @param onPenOnlyChanged the "Pen only" toggle changed; it is remembered per device.
@@ -74,6 +76,7 @@ class CanvasEditor(
                 penMode = penMode,
                 canUndo = controller.canUndo,
                 hasSelection = controller.hasSelection,
+                selectionMenu = selectionMenu(),
                 canRedo = controller.canRedo,
                 zoomPercent = (controller.viewport.zoom * 100).roundToInt(),
                 pageLabel = pageLabel(p),
@@ -159,6 +162,32 @@ class CanvasEditor(
         onPenOnlyChanged(on)
     }
 
+    // The canvas fills the editor, so its view pixels over its density are the chrome's dp.
+    private fun selectionMenu(): SelectionMenu? {
+        if (!controller.selectionMenuOpen) return null
+        val r = controller.selectionScreenBounds() ?: return null
+        val d = controller.viewport.density
+        return SelectionMenu(
+            androidx.compose.ui.geometry.Rect(r.left / d, r.top / d, r.right / d, r.bottom / d),
+            canGroup = controller.canGroup,
+            canUngroup = controller.canUngroup,
+        )
+    }
+
+    override fun selectionCommand(command: SelectionCommand) {
+        when (command) {
+            SelectionCommand.BringForward -> controller.bringForward()
+            SelectionCommand.SendBackward -> controller.sendBackward()
+            SelectionCommand.Group -> controller.groupSelection()
+            SelectionCommand.Ungroup -> controller.ungroupSelection()
+            SelectionCommand.Duplicate -> controller.duplicateSelection()
+            SelectionCommand.Delete -> controller.deleteSelection()
+        }
+        controller.closeSelectionMenu()
+    }
+
+    override fun closeSelectionMenu() = controller.closeSelectionMenu()
+
     override fun undo() = controller.undo()
 
     override fun redo() = controller.redo()
@@ -225,7 +254,6 @@ class CanvasEditor(
             Tool.Pen -> when (penMode) {
                 PenMode.Pen -> CanvasTool.PEN
                 PenMode.Hand -> CanvasTool.PAN
-                PenMode.Pointer -> CanvasTool.SELECT
             }
             Tool.Eraser -> CanvasTool.ERASER
             Tool.Shape -> CanvasTool.SHAPE
@@ -246,14 +274,14 @@ class CanvasEditor(
 
         /**
          * The toolbar's tool and pen mode for the canvas's [canvas] tool: the chosen ones while
-         * they still map to it, otherwise (after the pen's cycle button) the pen in that mode.
+         * they still map to it, otherwise (after the pen's pointer button) the tool that does.
          */
         fun uiTool(canvas: CanvasTool, tool: Tool, penMode: PenMode): Pair<Tool, PenMode> =
             if (canvasTool(tool, penMode) == canvas) tool to penMode
             else when (canvas) {
                 CanvasTool.PEN -> Tool.Pen to PenMode.Pen
                 CanvasTool.PAN -> Tool.Pen to PenMode.Hand
-                CanvasTool.SELECT -> Tool.Pen to PenMode.Pointer
+                CanvasTool.SELECT -> Tool.Select to penMode
                 CanvasTool.ERASER -> Tool.Eraser to penMode
                 CanvasTool.SHAPE -> Tool.Shape to penMode
                 CanvasTool.LINE -> Tool.Line to penMode

@@ -38,6 +38,16 @@ object Snap {
     }
 
     /**
+     * The turn that brings something at [base] radians, turned by [delta] by the pen, to the
+     * nearest multiple of [step]: the result plus [base] is a multiple of [step], within half a
+     * step of [base] + [delta].
+     */
+    fun rotation(base: Float, delta: Float, step: Double = ANGLE_STEP): Float {
+        val target = ((base + delta) / step).roundToInt() * step
+        return (target - base).toFloat()
+    }
+
+    /**
      * The rectangle dragged from ([ax], [ay]) to ([bx], [by]); a square with the drag's longer
      * side when [square], growing from the start corner towards the pen.
      */
