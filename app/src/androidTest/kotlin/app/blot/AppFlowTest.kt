@@ -9,9 +9,14 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -92,6 +97,47 @@ class AppFlowTest {
         val id = store.list().single().id
         val note: Note = store.readNote(id) { NoteJson.decode(it.decodeToString()) }.value
         assertEquals(listOf(stroke.id), note.elements.map { it.id })
+    }
+
+    @Test
+    fun newNoteIsNamedInTheTitleFieldAndRenamedFromTheLibrary() {
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription("New note").performClick()
+        compose.onNodeWithContentDescription("New infinite canvas").performClick()
+        waitFor(scenario) { canvasView(it) }
+        val title = compose.onNodeWithContentDescription("Note title")
+        title.assertIsFocused()
+        // The keyboard comes up for the title, ready to type.
+        waitUntil(scenario) { it.window.decorView.rootWindowInsets?.isVisible(android.view.WindowInsets.Type.ime()) == true }
+        shot("title-focused")
+        title.performTextInput("Raft notes")
+        shot("title-editing")
+        title.performImeAction()
+        waitUntil(scenario) { (it.app.screen as Screen.Editor).session.controller.note.value.title == "Raft notes" }
+        shot("title-set")
+
+        compose.onNodeWithContentDescription("Back to library").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Open Raft notes").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("More actions for Raft notes").performClick()
+        compose.onNodeWithText("Rename").performClick()
+        compose.onNodeWithContentDescription("Note title").performTextReplacement("Raft, day 2")
+        shot("rename-dialog")
+        compose.onNodeWithText("Rename").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Open Raft, day 2").fetchSemanticsNodes().isNotEmpty() }
+        shot("renamed-card")
+        scenario.close()
+
+        val store = TreeNoteStore(NoteFolder(context).tree()!!, File(context.cacheDir, "flow-test-index-2"), { NoteMeta("", 0) })
+        val note: Note = store.readNote(store.list().single().id) { NoteJson.decode(it.decodeToString()) }.value
+        assertEquals("Raft, day 2", note.title)
+    }
+
+    private fun shot(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(400)
+        val dir = File(context.getExternalFilesDir(null), "app-flow").apply { mkdirs() }
+        val b = instrumentation.uiAutomation.takeScreenshot() ?: return
+        java.io.FileOutputStream(File(dir, "$name.png")).use { b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test

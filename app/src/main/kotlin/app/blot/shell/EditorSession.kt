@@ -10,7 +10,6 @@ import app.blot.canvas.FrontBufferContent
 import app.blot.canvas.OutlineCache
 import app.blot.canvas.SceneRenderer
 import app.blot.core.model.Note
-import app.blot.core.model.NoteTitle
 import app.blot.core.model.format.NoteJson
 import app.blot.core.store.NoteId
 import app.blot.core.store.NoteMeta
@@ -178,7 +177,6 @@ class EditorSession(
 
     companion object {
         private const val TAG = "EditorSession"
-        const val UNTITLED = NoteTitle.UNTITLED
         private const val PREVIEW_WIDTH = 960
         private const val PREVIEW_HEIGHT = 540
 
