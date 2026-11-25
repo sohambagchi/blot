@@ -8,8 +8,11 @@ import java.io.IOException
 /**
  * [FileTree] over a local directory. Used by the JVM tests and usable on device for app-private
  * storage. It refuses to overwrite names, like SAF, so logic tested here behaves the same there.
+ *
+ * @param canMove false makes [move] report that it can't, like a provider without
+ *   `FLAG_SUPPORTS_MOVE`, so the copy fallback can be tested.
  */
-class JavaFileTree(rootDir: File) : FileTree<File> {
+class JavaFileTree(rootDir: File, private val canMove: Boolean = true) : FileTree<File> {
     override val root: File = rootDir.absoluteFile
     override val rootKey: String = "file:" + root.path
 
@@ -54,6 +57,16 @@ class JavaFileTree(rootDir: File) : FileTree<File> {
     override fun delete(ref: File) {
         if (!ref.exists()) throw FileNotFoundException("no such file: $ref")
         if (!ref.deleteRecursively()) throw IOException("cannot delete: $ref")
+    }
+
+    override fun move(ref: File, from: File, to: File): File? {
+        if (!canMove) return null
+        if (ref.parentFile != from) throw FileNotFoundException("$ref is not in $from")
+        val target = child(to, ref.name)
+        if (!ref.exists()) throw FileNotFoundException("no such file: $ref")
+        if (target.exists()) throw IOException("already exists: $target")
+        if (!ref.renameTo(target)) throw IOException("cannot move $ref to $to")
+        return target
     }
 
     private fun child(dir: File, name: String): File {

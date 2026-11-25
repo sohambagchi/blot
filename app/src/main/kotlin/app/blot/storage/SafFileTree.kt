@@ -72,6 +72,17 @@ class SafFileTree(private val resolver: ContentResolver, val treeUri: Uri) : Fil
         if (!DocumentsContract.deleteDocument(resolver, ref)) throw FileNotFoundException("cannot delete $ref")
     }
 
+    /**
+     * `DocumentsContract.moveDocument` when the provider flags [ref] with `FLAG_SUPPORTS_MOVE`
+     * (the external-storage provider does), else null so the store copies.
+     */
+    override fun move(ref: Uri, from: Uri, to: Uri): Uri? {
+        val flags = resolver.query(ref, FLAGS, null, null, null)?.use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+            ?: throw FileNotFoundException("cannot query $ref")
+        if ((flags and Document.FLAG_SUPPORTS_MOVE) == 0) return null
+        return DocumentsContract.moveDocument(resolver, ref, from, to) ?: throw FileNotFoundException("cannot move $ref")
+    }
+
     // octet-stream keeps the display name exactly as given; with another MIME type the external
     // storage provider may append an extension it derives from the type.
     private fun create(dir: Uri, mime: String, name: String): Uri =
@@ -79,6 +90,7 @@ class SafFileTree(private val resolver: ContentResolver, val treeUri: Uri) : Fil
 
     private companion object {
         const val OCTET_STREAM = "application/octet-stream"
+        val FLAGS = arrayOf(Document.COLUMN_FLAGS)
         val PROJECTION = arrayOf(
             Document.COLUMN_DOCUMENT_ID,
             Document.COLUMN_DISPLAY_NAME,

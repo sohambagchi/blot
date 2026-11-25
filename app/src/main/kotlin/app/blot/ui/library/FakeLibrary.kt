@@ -12,13 +12,16 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.PathParser
 import app.blot.core.model.NoteTitle
+import app.blot.core.store.FolderNameException
+import app.blot.core.store.FolderNames
 import app.blot.ui.editor.ExportOptions
 import app.blot.ui.theme.InkColors
 import app.blot.ui.theme.ThemeSetting
 
 /**
  * An in-memory [LibraryActions] with the design's sample notes, for previews and tests. Search
- * and folders filter the samples; new notes, deletes and settings change only memory.
+ * and folders filter the samples; new notes, folders, moves, deletes and settings change only
+ * memory. Folder names are checked by the app's rules.
  * [onOpen] is called when a note is opened.
  */
 class FakeLibrary(
@@ -27,9 +30,13 @@ class FakeLibrary(
     withNotes: Boolean = true,
     private val onOpen: (NoteCard) -> Unit = {},
 ) : LibraryActions {
-    private data class Sample(val id: String, val folder: String, val title: String, val date: String, val kind: PageKind, val pages: Int, val ink: Int, val scribble: String)
+    private data class Sample(val id: String, val folder: String?, val title: String, val date: String, val kind: PageKind, val pages: Int, val ink: Int, val scribble: String)
+
+    /** [extra] stands for the design's notes that aren't samples, so the counts match it. */
+    private data class Folder(val id: String, val name: String, val extra: Int)
 
     private var samples: List<Sample> = if (withNotes) designSamples() else emptyList()
+    private var folders: List<Folder> = if (withNotes) designFolders() else emptyList()
     private var nextId = 100
 
     /** Draw thumbnails for this theme. */
@@ -42,7 +49,7 @@ class FakeLibrary(
         }
 
     var state by mutableStateOf(
-        LibraryUiState(storage = storage, selectedFolder = "ds", settings = app.blot.ui.settings.SettingsUiState(version = "0.7")),
+        LibraryUiState(storage = storage, selectedFolder = if (withNotes) "ds" else null, settings = app.blot.ui.settings.SettingsUiState(version = "0.7")),
     )
         private set
 
@@ -56,17 +63,11 @@ class FakeLibrary(
         val inFolder = samples.filter { s.selectedFolder == null || it.folder == s.selectedFolder }
         val shown = inFolder.filter { q.isEmpty() || NoteTitle.display(it.title).contains(q, ignoreCase = true) }
         val counts = samples.groupingBy { it.folder }.eachCount()
-        val extra = mapOf("cc" to 6, "jn" to 7, "sk" to 2)
-        val folders = listOf(
-            FolderItem(null, "All notes", samples.size + extra.values.sum() - extra.keys.sumOf { counts[it] ?: 0 }),
-            FolderItem("ds", "Distributed systems", counts["ds"] ?: 0),
-            FolderItem("cc", "Compilers", counts["cc"] ?: extra.getValue("cc")),
-            FolderItem("jn", "Journal", counts["jn"] ?: extra.getValue("jn")),
-            FolderItem("sk", "Sketches", counts["sk"] ?: extra.getValue("sk")),
-        )
+        val items = listOf(FolderItem(null, "All notes", samples.size + folders.sumOf { it.extra })) +
+            folders.sortedBy { it.name.lowercase() }.map { FolderItem(it.id, it.name, (counts[it.id] ?: 0) + it.extra) }
         val ink = if (dark) InkColors.Dark else InkColors.Light
         state = s.copy(
-            folders = folders,
+            folders = items,
             notes = shown.map {
                 val colour = when (it.ink) {
                     1 -> ink.red
@@ -74,7 +75,7 @@ class FakeLibrary(
                     3 -> ink.green
                     else -> ink.black
                 }
-                NoteCard(it.id, NoteTitle.display(it.title), it.date, it.kind, it.pages, thumbnail(it.scribble, colour), untitled = it.title.isBlank())
+                NoteCard(it.id, NoteTitle.display(it.title), it.date, it.kind, it.pages, thumbnail(it.scribble, colour), untitled = it.title.isBlank(), folder = it.folder)
             },
         )
     }
@@ -92,7 +93,52 @@ class FakeLibrary(
         refresh()
     }
 
-    override fun newFolder() {}
+    override fun newFolder() = update { copy(folderDialog = FolderDialog.New(), folderMenu = null, cardMenu = null, newNoteOpen = false) }
+
+    override fun setFolderMenu(id: String?) = update { copy(folderMenu = id, cardMenu = null, newNoteOpen = false) }
+
+    override fun setFolderDialog(dialog: FolderDialog?) = update { copy(folderDialog = dialog, folderMenu = null) }
+
+    override fun createFolder(name: String) {
+        val clean = try {
+            FolderNames.clean(name, folders.map { it.name })
+        } catch (e: FolderNameException) {
+            update { copy(folderDialog = FolderDialog.New(e.reason, name)) }
+            return
+        }
+        val id = "f${nextId++}"
+        folders = folders + Folder(id, clean, 0)
+        update { copy(folderDialog = null, selectedFolder = id) }
+        refresh()
+    }
+
+    override fun renameFolder(id: String, name: String) {
+        val old = folders.firstOrNull { it.id == id } ?: return
+        val clean = try {
+            FolderNames.clean(name, folders.map { it.name }, renaming = old.name)
+        } catch (e: FolderNameException) {
+            update { copy(folderDialog = FolderDialog.Rename(id, old.name, e.reason)) }
+            return
+        }
+        folders = folders.map { if (it.id == id) it.copy(name = clean) else it }
+        update { copy(folderDialog = null) }
+        refresh()
+    }
+
+    override fun deleteFolder(id: String) {
+        samples = samples.map { if (it.folder == id) it.copy(folder = null) else it }
+        folders = folders.filter { it.id != id }
+        update { copy(folderDialog = null, selectedFolder = selectedFolder.takeIf { it != id }) }
+        refresh()
+    }
+
+    override fun setMoveMenu(open: Boolean) = update { copy(moveMenu = open) }
+
+    override fun moveNote(id: String, folder: String?) {
+        samples = samples.map { if (it.id == id) it.copy(folder = folder) else it }
+        update { copy(cardMenu = null, moveMenu = false) }
+        refresh()
+    }
 
     override fun setQuery(query: String) {
         if (query == state.query) return
@@ -103,13 +149,13 @@ class FakeLibrary(
     override fun setNewNoteOpen(open: Boolean) = update { copy(newNoteOpen = open, cardMenu = null) }
 
     override fun newNote(kind: PageKind) {
-        val folder = state.selectedFolder ?: "ds"
+        val folder = state.selectedFolder
         samples = listOf(Sample("n${nextId++}", folder, "", "Today", kind, 1, 0, "")) + samples
         update { copy(newNoteOpen = false) }
         refresh()
     }
 
-    override fun setCardMenu(id: String?) = update { copy(cardMenu = id, newNoteOpen = false) }
+    override fun setCardMenu(id: String?) = update { copy(cardMenu = id, moveMenu = false, folderMenu = null, newNoteOpen = false) }
     override fun setRenaming(id: String?) = update { copy(renaming = id, cardMenu = null, newNoteOpen = false) }
 
     override fun renameNote(id: String, title: String) {
@@ -153,6 +199,13 @@ class FakeLibrary(
         const val S2 = "M30 70 h40 v30 h-40 z M100 60 h40 v30 h-40 z M100 110 h40 v30 h-40 z M70 85 L100 75 M70 85 L100 125"
         const val S3 = "M20 72 c 30 -10 60 10 90 0 s 60 -10 90 0 M20 100 h170 M20 124 h120"
         const val S4 = "M40 120 c 20 -60 60 -60 80 0 s 60 60 80 0"
+
+        fun designFolders() = listOf(
+            Folder("ds", "Distributed systems", 0),
+            Folder("cc", "Compilers", 6),
+            Folder("jn", "Journal", 7),
+            Folder("sk", "Sketches", 2),
+        )
 
         fun designSamples() = listOf(
             Sample("raft", "ds", "Raft", "Today", PageKind.Infinite, 0, 2, S2),

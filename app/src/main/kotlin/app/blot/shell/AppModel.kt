@@ -27,6 +27,8 @@ import app.blot.core.model.Note
 import app.blot.core.model.NoteTitle
 import app.blot.core.model.format.NoteFormatException
 import app.blot.core.model.format.NoteJson
+import app.blot.core.store.FolderNameException
+import app.blot.core.store.FolderNames
 import app.blot.core.store.NoteId
 import app.blot.core.store.NoteMeta
 import app.blot.core.store.NoteStore
@@ -37,6 +39,7 @@ import app.blot.storage.NoteFolder
 import app.blot.storage.SafFileTree
 import app.blot.ui.editor.ExportArea
 import app.blot.ui.editor.ExportOptions
+import app.blot.ui.library.FolderDialog
 import app.blot.ui.library.FolderItem
 import app.blot.ui.library.LibraryActions
 import app.blot.ui.library.LibraryExport
@@ -136,6 +139,7 @@ class AppModel(
     private var treeUri: Uri? = null
     private var lostUri: Uri? = null
     private var cards: List<NoteCard> = emptyList()
+    private var folderNames: List<String> = emptyList()
     private var refreshJob: Job? = null
     private var opening = false
     private val decoded = LruCache<String, ImageBitmap>(THUMBNAIL_CACHE)
@@ -195,11 +199,12 @@ class AppModel(
         refresh()
     }
 
-    private fun openSession(store: NoteStore, id: NoteId, note: Note, message: String?, readOnly: Boolean, editTitle: Boolean = false) {
+    /** Opens the editor on note [id], which lives in [inFolder] (null: the top level). */
+    private fun openSession(store: NoteStore, id: NoteId, inFolder: String?, note: Note, message: String?, readOnly: Boolean, editTitle: Boolean = false) {
         val path = (library.storage as? StorageState.Ready)?.path.orEmpty()
         val s = EditorSession(
             id, note,
-            SessionSetup(dark, settings.penOnly, settings.swapSideButtons, settings.frontBuffer, path.substringAfterLast('/'), message, readOnly, editTitle),
+            SessionSetup(dark, settings.penOnly, settings.swapSideButtons, settings.frontBuffer, inFolder ?: path.substringAfterLast('/'), message, readOnly, editTitle),
             store, ioScope, main, thumbnails, exporter,
             onBack = ::closeEditor,
             onPenOnlyChanged = { settings.penOnly = it },
@@ -207,7 +212,9 @@ class AppModel(
             screenPageSize = { screenSizeDp() },
             onBackgroundChanged = { settings.background = it },
         )
-        library = library.copy(cardMenu = null, renaming = null, newNoteOpen = false, settingsOpen = false)
+        library = library.copy(
+            cardMenu = null, moveMenu = false, folderMenu = null, folderDialog = null, renaming = null, newNoteOpen = false, settingsOpen = false,
+        )
         screen = Screen.Editor(s)
     }
 
@@ -219,8 +226,8 @@ class AppModel(
         refreshJob?.cancel()
         val darkNow = dark
         refreshJob = main.launch {
-            val list = try {
-                withStore { it.list() }
+            val (list, folders) = try {
+                withStore { it.list() to it.folders() }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -228,6 +235,7 @@ class AppModel(
                 return@launch
             }
             cards = withContext(io) { list.map { card(it, darkNow) } }
+            folderNames = folders
             showCards()
             for (summary in list) {
                 if (summary.damaged || thumbnails.file(summary.id.value, summary.modified, darkNow) != null) continue
@@ -245,12 +253,15 @@ class AppModel(
         }
     }
 
+    /** Shows the cards of the selected folder, or all of them, that match the search. */
     private fun showCards() {
         val q = library.query.trim()
+        val selected = library.selectedFolder?.takeIf { it in folderNames }
+        val counts = cards.groupingBy { it.folder }.eachCount()
         library = library.copy(
-            folders = listOf(FolderItem(null, "All notes", cards.size)),
-            selectedFolder = null,
-            notes = cards.filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) },
+            folders = listOf(FolderItem(null, "All notes", cards.size)) + folderNames.map { FolderItem(it, it, counts[it] ?: 0) },
+            selectedFolder = selected,
+            notes = cards.filter { (selected == null || it.folder == selected) && (q.isEmpty() || it.title.contains(q, ignoreCase = true)) },
         )
     }
 
@@ -270,6 +281,7 @@ class AppModel(
             pages = info?.pages ?: 1,
             thumbnail = bitmap,
             untitled = s.title.isBlank(),
+            folder = s.folder,
         )
     }
 
@@ -287,8 +299,8 @@ class AppModel(
         library = library.copy(cardMenu = null, newNoteOpen = false)
         main.launch {
             try {
-                val (store, opened) = withStore { it to readForEditing(it, NoteId(id)) }
-                openSession(store, NoteId(id), opened.note, opened.message, opened.readOnly)
+                val (store, opened, folder) = withStore { Triple(it, readForEditing(it, NoteId(id)), it.folderOf(NoteId(id))) }
+                openSession(store, NoteId(id), folder, opened.note, opened.message, opened.readOnly)
             } catch (e: NoteUnreadableException) {
                 message(
                     if (e.suppressed.any { it is NewerFormat }) "This note needs a newer version of Blot"
@@ -309,12 +321,13 @@ class AppModel(
         opening = true
         library = library.copy(newNoteOpen = false)
         val note = CanvasController.newNote(CanvasEditor.pageSetup(kind, screen = screenSizeDp())).copy(background = settings.background)
+        val folder = library.selectedFolder
         main.launch {
             try {
                 val (store, id) = withStore {
-                    it to it.create(NoteJson.encode(note).encodeToByteArray(), NoteMeta(note.title, note.modified.toEpochMilli()))
+                    it to it.create(NoteJson.encode(note).encodeToByteArray(), NoteMeta(note.title, note.modified.toEpochMilli()), folder)
                 }
-                openSession(store, id, note, null, false, editTitle = true)
+                openSession(store, id, folder, note, null, false, editTitle = true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -447,10 +460,107 @@ class AppModel(
     }
 
     override fun selectFolder(id: String?) {
-        library = library.copy(selectedFolder = null)
+        library = library.copy(selectedFolder = id, folderMenu = null, cardMenu = null, moveMenu = false)
+        showCards()
     }
 
-    override fun newFolder() = message("Folders aren't available yet")
+    override fun newFolder() {
+        library = library.copy(folderDialog = FolderDialog.New(), folderMenu = null, cardMenu = null, newNoteOpen = false)
+    }
+
+    override fun setFolderMenu(id: String?) {
+        library = library.copy(folderMenu = id, cardMenu = null, moveMenu = false, newNoteOpen = false)
+    }
+
+    override fun setFolderDialog(dialog: FolderDialog?) {
+        library = library.copy(folderDialog = dialog, folderMenu = null)
+    }
+
+    override fun createFolder(name: String) {
+        FolderNames.problem(name, folderNames)?.let {
+            library = library.copy(folderDialog = FolderDialog.New(it, name))
+            return
+        }
+        main.launch {
+            try {
+                val created = withStore { it.createFolder(name) }
+                folderNames = (folderNames + created).sortedWith(String.CASE_INSENSITIVE_ORDER)
+                library = library.copy(folderDialog = null, selectedFolder = created)
+                showCards()
+            } catch (e: FolderNameException) {
+                library = library.copy(folderDialog = FolderDialog.New(e.reason, name))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                library = library.copy(folderDialog = null)
+                storageFailed(e, "Couldn't create the folder")
+            }
+            refresh()
+        }
+    }
+
+    override fun renameFolder(id: String, name: String) {
+        FolderNames.problem(name, folderNames, renaming = id)?.let {
+            library = library.copy(folderDialog = FolderDialog.Rename(id, id, it))
+            return
+        }
+        main.launch {
+            try {
+                val renamed = withStore { it.renameFolder(id, name) }
+                folderNames = folderNames.map { if (it == id) renamed else it }.sortedWith(String.CASE_INSENSITIVE_ORDER)
+                cards = cards.map { if (it.folder == id) it.copy(folder = renamed) else it }
+                library = library.copy(folderDialog = null, selectedFolder = library.selectedFolder.let { if (it == id) renamed else it })
+                showCards()
+            } catch (e: FolderNameException) {
+                library = library.copy(folderDialog = FolderDialog.Rename(id, id, e.reason))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                library = library.copy(folderDialog = null)
+                storageFailed(e, "Couldn't rename the folder")
+            }
+            refresh()
+        }
+    }
+
+    override fun deleteFolder(id: String) {
+        library = library.copy(folderDialog = null, folderMenu = null)
+        main.launch {
+            try {
+                val deleted = withStore { it.deleteFolder(id) }
+                if (!deleted.removed) {
+                    message("Moved the notes out of “$id”. It still holds other files, so the folder was kept.")
+                } else if (library.selectedFolder == id) {
+                    library = library.copy(selectedFolder = null)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                storageFailed(e, "Couldn't delete the folder")
+            }
+            refresh()
+        }
+    }
+
+    override fun setMoveMenu(open: Boolean) {
+        library = library.copy(moveMenu = open)
+    }
+
+    override fun moveNote(id: String, folder: String?) {
+        library = library.copy(cardMenu = null, moveMenu = false)
+        main.launch {
+            try {
+                withStore { it.move(NoteId(id), folder) }
+                cards = cards.map { if (it.id == id) it.copy(folder = folder) else it }
+                showCards()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                storageFailed(e, "Couldn't move the note")
+            }
+            refresh()
+        }
+    }
 
     override fun setQuery(query: String) {
         if (query == library.query) return
@@ -463,7 +573,7 @@ class AppModel(
     }
 
     override fun setCardMenu(id: String?) {
-        library = library.copy(cardMenu = id, newNoteOpen = false)
+        library = library.copy(cardMenu = id, moveMenu = false, folderMenu = null, newNoteOpen = false)
     }
 
     override fun setSettingsOpen(open: Boolean) {
@@ -523,6 +633,7 @@ class AppModel(
         if (storage !is StorageState.Ready) {
             refreshJob?.cancel()
             cards = emptyList()
+            folderNames = emptyList()
         }
         library = library.copy(storage = storage)
         showCards()

@@ -54,4 +54,12 @@ interface FileTree<R> {
     fun rename(ref: R, newName: String): R
 
     fun delete(ref: R)
+
+    /**
+     * Moves [ref], a child of directory [from], into directory [to] under the same name, in one
+     * backend step, and returns the ref to use from now on. Returns null, having changed nothing,
+     * when the backend can't move it; the caller then copies. After an exception the caller can't
+     * know where [ref] is and must list both directories again.
+     */
+    fun move(ref: R, from: R, to: R): R?
 }

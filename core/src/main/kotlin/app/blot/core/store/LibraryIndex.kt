@@ -8,6 +8,9 @@ import java.nio.file.StandardCopyOption
 /**
  * The cached summary of every directory under the notes root, kept as one JSON file in
  * app-private storage. It is only a cache: deleting it costs one full re-read of the folder.
+ *
+ * Keys are paths under the root: `<name>` for a top-level directory (a note, or a folder when it
+ * has no summary) and `<folder>/<name>` for a directory in a folder.
  */
 internal class LibraryIndex(private val file: File, private val rootKey: String) {
     /**
@@ -39,8 +42,9 @@ internal class LibraryIndex(private val file: File, private val rootKey: String)
                 d as Map<*, *>
                 val name = d["name"] as String
                 val note = d["note"] as Map<*, *>?
+                val folder = name.substringBefore('/', "").ifEmpty { null }
                 val summary = note?.let {
-                    NoteSummary(NoteId(name), it["title"] as String, it["modified"] as Long, it["damaged"] as Boolean)
+                    NoteSummary(NoteId(name.substringAfter('/')), it["title"] as String, it["modified"] as Long, it["damaged"] as Boolean, folder)
                 }
                 entries[name] = Entry(d["dirModified"] as Long?, summary)
             }
@@ -72,7 +76,10 @@ internal class LibraryIndex(private val file: File, private val rootKey: String)
         dirty = false
     }
 
-    private companion object {
-        const val VERSION = 1L
+    companion object {
+        private const val VERSION = 2L
+
+        /** The key of directory [name] in [folder] (null: the top level). */
+        fun key(folder: String?, name: String) = if (folder == null) name else "$folder/$name"
     }
 }

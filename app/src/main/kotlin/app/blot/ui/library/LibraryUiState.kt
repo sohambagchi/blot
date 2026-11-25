@@ -23,11 +23,26 @@ data class NoteCard(
     val thumbnail: ImageBitmap? = null,
     /** The note has no title; [title] then reads "Untitled". */
     val untitled: Boolean = false,
+    /** The [FolderItem.id] of the folder holding the note, or null at the top level. */
+    val folder: String? = null,
 )
 
 /** A folder in the left column; [id] null is "All notes". */
 @Immutable
 data class FolderItem(val id: String?, val name: String, val count: Int)
+
+/** The folder dialogs, opened from "New folder" and a folder's menu. */
+@Immutable
+sealed interface FolderDialog {
+    /** Naming a new folder; [error] says why the last [name] typed was refused. */
+    data class New(val error: String? = null, val name: String = "") : FolderDialog
+
+    /** Renaming folder [id], now called [name]. */
+    data class Rename(val id: String, val name: String, val error: String? = null) : FolderDialog
+
+    /** Confirming that folder [id] goes and its [count] notes move to the top level. */
+    data class Delete(val id: String, val name: String, val count: Int) : FolderDialog
+}
 
 /**
  * The notes folder, mirroring `NoteFolder.State` with a display [path]
@@ -50,6 +65,11 @@ data class LibraryUiState(
     val query: String = "",
     /** The note whose card menu is open. */
     val cardMenu: String? = null,
+    /** The open card menu lists the folders to move its note to instead of its actions. */
+    val moveMenu: Boolean = false,
+    /** The folder whose menu is open. */
+    val folderMenu: String? = null,
+    val folderDialog: FolderDialog? = null,
     /** The note whose rename dialog is open. */
     val renaming: String? = null,
     val newNoteOpen: Boolean = false,
@@ -79,12 +99,27 @@ data class LibraryExport(
 interface LibraryActions : SettingsActions {
     fun openNote(id: String)
     fun selectFolder(id: String?)
+    /** Opens the dialog that names a new folder. */
     fun newFolder()
+    /** Opens the menu of folder [id], or closes it when null. */
+    fun setFolderMenu(id: String?)
+    /** Opens [dialog], or closes the open folder dialog when null. */
+    fun setFolderDialog(dialog: FolderDialog?)
+    /** Creates a folder named [name] as typed; a refused name keeps the dialog open with the reason. */
+    fun createFolder(name: String)
+    /** Renames folder [id] to [name] as typed; a refused name keeps the dialog open with the reason. */
+    fun renameFolder(id: String, name: String)
+    /** Moves the notes of folder [id] to the top level, then removes the folder. */
+    fun deleteFolder(id: String)
     fun setQuery(query: String)
     fun setNewNoteOpen(open: Boolean)
     fun newNote(kind: PageKind)
     /** Opens the card menu of note [id], or closes it when null. */
     fun setCardMenu(id: String?)
+    /** Shows the folders to move to in the open card menu, or its actions again. */
+    fun setMoveMenu(open: Boolean)
+    /** Moves note [id] into folder [folder], or to the top level when null. */
+    fun moveNote(id: String, folder: String?)
     /** Opens the rename dialog for note [id], or closes it when null. */
     fun setRenaming(id: String?)
     /** Renames note [id] to [title] as typed; blank leaves it untitled. Closes the dialog. */

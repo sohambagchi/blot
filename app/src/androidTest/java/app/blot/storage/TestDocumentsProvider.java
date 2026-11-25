@@ -20,10 +20,15 @@ import java.io.IOException;
  * Document ids are "root" and "root/<relative path>". Like the real external-storage provider
  * it reports directory modified times; unlike it, it refuses to create or rename onto an
  * existing name instead of picking "name (1)", so store logic that would collide fails loudly.
+ * It moves documents, flagging them FLAG_SUPPORTS_MOVE, until {@link #supportsMove} is turned off
+ * to test the store's copy fallback.
  */
 public class TestDocumentsProvider extends DocumentsProvider {
     static final String AUTHORITY = "app.blot.test.documents";
     static final String ROOT_DOC = "root";
+
+    /** Set through {@link TestGrantProvider}'s "moves" method; this runs in the same process. */
+    static volatile boolean supportsMove = true;
 
     private static final String[] ROOT_COLUMNS = {
         Root.COLUMN_ROOT_ID, Root.COLUMN_DOCUMENT_ID, Root.COLUMN_TITLE, Root.COLUMN_FLAGS,
@@ -57,7 +62,8 @@ public class TestDocumentsProvider extends DocumentsProvider {
     private static void addRow(MatrixCursor cursor, String docId, File f) {
         boolean dir = f.isDirectory();
         int flags = Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_RENAME
-            | (dir ? Document.FLAG_DIR_SUPPORTS_CREATE : Document.FLAG_SUPPORTS_WRITE);
+            | (dir ? Document.FLAG_DIR_SUPPORTS_CREATE : Document.FLAG_SUPPORTS_WRITE)
+            | (supportsMove ? Document.FLAG_SUPPORTS_MOVE : 0);
         cursor.newRow()
             .add(Document.COLUMN_DOCUMENT_ID, docId)
             .add(Document.COLUMN_DISPLAY_NAME, docId.equals(ROOT_DOC) ? "Test root" : f.getName())
@@ -128,6 +134,18 @@ public class TestDocumentsProvider extends DocumentsProvider {
             throw new FileNotFoundException("cannot rename " + documentId + " to " + displayName);
         }
         return childId(documentId.substring(0, documentId.lastIndexOf('/')), displayName);
+    }
+
+    @Override
+    public String moveDocument(String sourceDocumentId, String sourceParentDocumentId, String targetParentDocumentId)
+        throws FileNotFoundException {
+        if (!supportsMove) throw new UnsupportedOperationException("move is turned off");
+        File f = fileFor(sourceDocumentId);
+        File target = new File(fileFor(targetParentDocumentId), f.getName());
+        if (!f.getParentFile().equals(fileFor(sourceParentDocumentId)) || !f.exists() || target.exists() || !f.renameTo(target)) {
+            throw new FileNotFoundException("cannot move " + sourceDocumentId + " to " + targetParentDocumentId);
+        }
+        return childId(targetParentDocumentId, f.getName());
     }
 
     @Override

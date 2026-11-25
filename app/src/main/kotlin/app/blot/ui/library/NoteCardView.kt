@@ -8,6 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -154,27 +158,72 @@ internal fun PageGlyph(kind: PageKind, tint: Color, small: Boolean) {
     }
 }
 
-/** The card menu: rename, export as PNG, PDF or SVG, share, delete. */
+/** Where "Move to…" can send [note]: the top level (id null) unless it is there, and every other folder. */
+internal fun moveTargets(note: NoteCard, folders: List<FolderItem>): List<FolderItem> =
+    (if (note.folder != null) listOf(FolderItem(null, "Top level", 0)) else emptyList()) +
+        folders.filter { it.id != null && it.id != note.folder }
+
+/**
+ * The card menu: rename, move to another folder, export, delete. With [moving] it lists the
+ * folders to move to instead, under a row that leads back.
+ */
 @Composable
-internal fun CardMenu(id: String, actions: LibraryActions, modifier: Modifier = Modifier) {
+internal fun CardMenu(note: NoteCard, moving: Boolean, folders: List<FolderItem>, actions: LibraryActions, modifier: Modifier = Modifier) {
     val c = colors
+    val targets = moveTargets(note, folders)
+    fun done(f: () -> Unit) = {
+        actions.setCardMenu(null)
+        f()
+    }
+    MenuSurface(modifier) {
+        if (moving) {
+            MenuRow(BlotIcons.ChevronLeft, "Move to", c.muted) { actions.setMoveMenu(false) }
+            Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+            Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (t in targets) MenuRow(BlotIcons.Folder, t.name, c.text, done { actions.moveNote(note.id, t.id) })
+            }
+        } else {
+            MenuRow(BlotIcons.Rename, "Rename", c.text) { actions.setRenaming(note.id) }
+            if (targets.isNotEmpty()) {
+                Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+                MenuRow(FolderMove, "Move to…", c.text) { actions.setMoveMenu(true) }
+            }
+            Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+            MenuRow(BlotIcons.ShareAlt, "Export…", c.text, done { actions.openExport(note.id) })
+            Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+            MenuRow(BlotIcons.Delete, "Delete", c.danger, done { actions.deleteNote(note.id) })
+        }
+    }
+}
+
+/** A folder's menu: rename, and delete (after a confirmation that its notes move out). */
+@Composable
+internal fun FolderMenu(folder: FolderItem, actions: LibraryActions, modifier: Modifier = Modifier) {
+    val c = colors
+    val id = folder.id ?: return
+    MenuSurface(modifier) {
+        MenuRow(BlotIcons.Rename, "Rename", c.text) { actions.setFolderDialog(FolderDialog.Rename(id, folder.name)) }
+        Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+        MenuRow(BlotIcons.Delete, "Delete", c.danger) { actions.setFolderDialog(FolderDialog.Delete(id, folder.name, folder.count)) }
+    }
+}
+
+private val FolderMove = Glyph(
+    "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z",
+    "M8 13h7",
+    "m12.5 10 3 3-3 3",
+)
+
+@Composable
+private fun MenuSurface(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
             .width(184.dp)
             .floatingSurface(RoundedCornerShape(12.dp), Elevation.LibraryMenu)
             .padding(7.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        fun done(f: () -> Unit) = {
-            actions.setCardMenu(null)
-            f()
-        }
-        MenuRow(BlotIcons.Rename, "Rename", c.text) { actions.setRenaming(id) }
-        Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-        MenuRow(BlotIcons.ShareAlt, "Export…", c.text, done { actions.openExport(id) })
-        Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-        MenuRow(BlotIcons.Delete, "Delete", c.danger, done { actions.deleteNote(id) })
-    }
+        content = content,
+    )
 }
 
 @Composable
@@ -190,7 +239,7 @@ private fun MenuRow(glyph: Glyph, label: String, color: Color, onClick: () -> Un
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         GlyphIcon(glyph, color, size = 18.dp)
-        BasicText(label, style = BlotType.body.copy(color = color))
+        EllipsisText(label, BlotType.body.copy(color = color))
     }
 }
 

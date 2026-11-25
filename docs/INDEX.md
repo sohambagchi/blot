@@ -9,6 +9,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2228-folders-are-subdirectories](adr/2026-11-24-2228-folders-are-subdirectories.md) — library folders are one level of subdirectories; deleting one moves its notes out; moves fall back to a verified copy
 - [2026-11-24-2244-note-background-patterns](adr/2026-11-24-2244-note-background-patterns.md) — per-note dots, grid or ruled background, an optional field in format 1, not an undo step
 - [2026-11-24-2236-format-2-shape-kinds-and-line-routes](adr/2026-11-24-2236-format-2-shape-kinds-and-line-routes.md) — format 2 adds shape kinds and line routes; notes are written at the lowest version they need
 - [2026-11-24-2213-fixed-signing-key-outside-the-repo](adr/2026-11-24-2213-fixed-signing-key-outside-the-repo.md) — builds sign with ~/.android/blot.jks so updates install over each other
@@ -38,6 +39,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2245-library-folders](changelog/2026-11-24-2245-library-folders.md) — folders in the library: create, rename, delete, Move to…
 - [2026-11-24-2244-note-backgrounds](changelog/2026-11-24-2244-note-backgrounds.md) — Background panel with dots, grid and ruled lines, sizes and export
 - [2026-11-24-2236-shapes-and-line-routes](changelog/2026-11-24-2236-shapes-and-line-routes.md) — every shape kind and elbow and curved lines draw
 - [2026-11-24-2149-pointer-input](changelog/2026-11-24-2149-pointer-input.md) — pointer tool, pen buttons, rotate and scale with readouts, press-and-hold menu, groups
