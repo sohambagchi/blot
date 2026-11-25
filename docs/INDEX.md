@@ -9,6 +9,8 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2023-export-pages-and-bounds](adr/2026-11-24-2023-export-pages-and-bounds.md) — PDF page per note page; PNG and SVG as one file; content bounds plus margin
+- [2026-11-24-2023-svg-embeds-images](adr/2026-11-24-2023-svg-embeds-images.md) — SVG embeds images as data URIs and lays text out as positioned lines
 - [2026-11-24-2005-in-progress-ink-as-pressure-capsules](adr/2026-11-24-2005-in-progress-ink-as-pressure-capsules.md) — in-progress ink drawn as pressure capsules matching the final outline
 - [2026-11-24-1928-note-json-format](adr/2026-11-24-1928-note-json-format.md) — note.json layout, element types and the point codec
 - [2026-11-24-1934-note-directory-named-by-id](adr/2026-11-24-1934-note-directory-named-by-id.md) — note folders are named by a stable id, never by title
@@ -24,6 +26,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2023-export](changelog/2026-11-24-2023-export.md) — PNG, PDF and SVG export with share and save to folder
 - [2026-11-24-2005-inking-canvas](changelog/2026-11-24-2005-inking-canvas.md) — inking canvas on LowLatencyCanvasView, with pan, zoom, eraser and undo
 - [2026-11-24-2004-editor-ui](changelog/2026-11-24-2004-editor-ui.md) — editor chrome, library, settings and phone layout from the design
 - [2026-11-24-1934-note-store](changelog/2026-11-24-1934-note-store.md) — SAF note storage with an incremental library index

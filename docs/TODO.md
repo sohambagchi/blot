@@ -6,7 +6,7 @@
 - [ ] 2 Wire the app together: library on the SAF note store, editor on the canvas, saves through `NoteJson`, thumbnails in the library index
 - [ ] 3 Tools: partial eraser, lasso select/move/scale, stacking-order commands, shapes, lines and arrows, text-box editing
 - [ ] 4 Image import and paste into markdown text boxes
-- [ ] 5 Export PNG, PDF and SVG; share
+- [ ] ] Join the PNG, PDF and SVG exporter to the editor's export dialog, and share one markdown text-box renderer between screen and export
 - [ ] 6 Iterate the UI in the Claude Design canvas: https://claude.ai/artifact/EfhVLmtXRNi457wy83HBCP
 - [ ] 7 Public open-source release prep — details: [2026-11-24-1551-public-release](todo/2026-11-24-1551-public-release.md)
 - [ ] 8 Layers: deferred; stacking order until then (the design's layer panel is not built)
