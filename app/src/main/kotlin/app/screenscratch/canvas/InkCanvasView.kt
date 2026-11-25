@@ -77,6 +77,7 @@ class InkCanvasView(
     private var receivedNanos = 0L
     private var lastCommitMs = 0L
     private var bufferHoldsContent = false
+    private val toolOverlay = ToolOverlayPainter(density)
 
     init {
         addView(sceneView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -275,6 +276,20 @@ class InkCanvasView(
 
         override fun transformEnd() = Unit
 
+        override fun editStart(sample: InputSample) {
+            val v = controller.viewport
+            controller.toolStart(v.toCanvasX(sample.x), v.toCanvasY(sample.y))
+        }
+
+        override fun editMove(samples: List<InputSample>) {
+            val v = controller.viewport
+            for (s in samples) controller.toolMove(v.toCanvasX(s.x), v.toCanvasY(s.y))
+        }
+
+        override fun editEnd() = controller.toolEnd()
+
+        override fun editCancel() = controller.toolCancel()
+
         private fun add(b: StrokeBuilder, v: Viewport, s: InputSample): LiveSegment? =
             b.add(v.toCanvasX(s.x), v.toCanvasY(s.y), s.pressure, s.tilt, s.orientation, s.timeMs)
 
@@ -441,7 +456,8 @@ class InkCanvasView(
             val t0 = System.nanoTime()
             val v = controller.viewport
             val dark = controller.darkMode
-            uiRenderer.draw(canvas, controller.note.value, v, width, height, dark)
+            uiRenderer.draw(canvas, controller.note.value, v, width, height, dark, controller.scenePreview())
+            toolOverlay.draw(canvas, controller, uiRenderer, dark)
             val b = builder
             if (b != null && lowLatencyView == null) {
                 canvas.save()

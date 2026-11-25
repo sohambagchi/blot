@@ -8,7 +8,7 @@ enum class Tool {
     ERASER,
     PAN,
 
-    /** Selection is not built yet; pen drags with it do nothing. */
+    /** Lasso or rectangle selection, by [CanvasController.selectMode]; drags on a selection move or scale it. */
     SELECT;
 
     /** The tool the pen's cycle button moves to: pen → pan → select → pen. The eraser goes to the pen. */
@@ -27,6 +27,9 @@ enum class EraserMode {
     /** Only the parts of strokes it passes over; the rest are split into new strokes. */
     PARTIAL,
 }
+
+/** How [Tool.SELECT] picks elements when dragged off a selection. */
+enum class SelectMode { LASSO, RECTANGLE }
 
 /** The kind of pointer, from `MotionEvent.getToolType`. */
 enum class PointerKind { STYLUS, ERASER, FINGER, MOUSE, UNKNOWN }

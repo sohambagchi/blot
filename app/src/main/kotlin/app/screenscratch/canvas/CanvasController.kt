@@ -5,12 +5,19 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.screenscratch.core.edit.PartialErase
+import app.screenscratch.core.edit.Selection
+import app.screenscratch.core.edit.SelectionEdits
+import app.screenscratch.core.edit.Similarity
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Element
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.PageSetup
 import app.screenscratch.core.model.Rect
 import app.screenscratch.core.model.Stroke
+import app.screenscratch.core.model.bringForward
+import app.screenscratch.core.model.bringToFront
+import app.screenscratch.core.model.sendBackward
+import app.screenscratch.core.model.sendToBack
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,11 +38,38 @@ class CanvasController(initial: Note) {
     private val outlines = OutlineCache()
     internal val outlineCache: OutlineCache get() = outlines
 
-    /** What pen drags do; the pen's cycle button changes it too. */
-    var tool by mutableStateOf(Tool.PEN)
+    private val gestures = ToolGestures(this)
+    internal val toolGestures: ToolGestures get() = gestures
+
+    private var _tool by mutableStateOf(Tool.PEN)
+
+    /**
+     * What pen drags do; the pen's cycle button changes it too. Leaving [Tool.SELECT] clears the
+     * selection.
+     */
+    var tool: Tool
+        get() = _tool
+        set(v) {
+            if (v == _tool) return
+            _tool = v
+            // A cycle-button press mid-drag lets the drag finish on the selection first; see toolEnd.
+            if (v != Tool.SELECT && !gestures.active) clearSelection()
+        }
 
     /** What [Tool.ERASER] and the pen's erase button take. */
     var eraserMode by mutableStateOf(EraserMode.WHOLE_STROKE)
+
+    /** How [Tool.SELECT] selects. */
+    var selectMode by mutableStateOf(SelectMode.LASSO)
+
+    /** Ids of the selected elements, in no particular order. Every id is in the note. */
+    var selection by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    val hasSelection: Boolean get() = selection.isNotEmpty()
+
+    /** The union of the selected elements' bounds, or null when nothing is selected. */
+    val selectionBounds: Rect? get() = if (selection.isEmpty()) null else Selection.bounds(_note.value.elements, selection)
 
     /** Colour of new strokes. */
     var color by mutableStateOf(Argb.BLACK)
@@ -104,6 +138,8 @@ class CanvasController(initial: Note) {
     fun load(note: Note) {
         history.clear()
         gestureStart = null
+        gestures.cancel()
+        selection = emptySet()
         setNote(note)
         fitPending = true
         if (viewWidth > 0) initialFit()
@@ -119,14 +155,97 @@ class CanvasController(initial: Note) {
     }
 
     fun undo() {
+        gestures.cancel()
         val n = history.undo(_note.value) ?: return
         setNote(n)
     }
 
     fun redo() {
+        gestures.cancel()
         val n = history.redo(_note.value) ?: return
         setNote(n)
     }
+
+    // Selection commands. Each edit is one undo step; selection itself is not in the history.
+
+    /** Selects the elements with [ids] that are in the note, replacing the selection. */
+    fun select(ids: Set<String>) {
+        val present = if (ids.isEmpty()) emptySet() else _note.value.elements.mapNotNullTo(HashSet()) { e -> e.id.takeIf { it in ids } }
+        if (present == selection) return
+        selection = present
+        overlayChanged()
+    }
+
+    fun selectAll() = select(_note.value.elements.mapTo(HashSet()) { it.id })
+
+    fun clearSelection() = select(emptySet())
+
+    /** Removes the selected elements. */
+    fun deleteSelection() {
+        val ids = selection
+        if (ids.isEmpty()) return
+        edit { it.copy(elements = SelectionEdits.delete(it.elements, ids)) }
+    }
+
+    /** Copies the selected elements on top of everything, offset by [DUPLICATE_OFFSET], and selects the copies. */
+    fun duplicateSelection() {
+        val ids = selection
+        if (ids.isEmpty()) return
+        val (elements, copies) = SelectionEdits.duplicate(_note.value.elements, ids, DUPLICATE_OFFSET, DUPLICATE_OFFSET)
+        edit { it.copy(elements = elements) }
+        select(copies.toSet())
+    }
+
+    fun bringToFront() = restack { it.bringToFront(selection) }
+
+    /** Moves the selection above the next element that overlaps it. */
+    fun bringForward() = restack { it.bringForward(selection) }
+
+    /** Moves the selection below the next element that overlaps it. */
+    fun sendBackward() = restack { it.sendBackward(selection) }
+
+    fun sendToBack() = restack { it.sendToBack(selection) }
+
+    private fun restack(f: (List<Element>) -> List<Element>) {
+        if (selection.isEmpty()) return
+        edit { it.copy(elements = f(it.elements)) }
+    }
+
+    /** Moves the selection by ([dx], [dy]) canvas units. */
+    fun moveSelection(dx: Float, dy: Float) = transformSelection(selection, Similarity.translate(dx, dy))
+
+    /** Scales the selection by [factor] (> 0) about ([originX], [originY]), canvas units; strokes' widths scale too. */
+    fun scaleSelection(factor: Float, originX: Float, originY: Float) =
+        transformSelection(selection, Similarity.scale(factor, originX, originY))
+
+    internal fun transformSelection(ids: Set<String>, t: Similarity) {
+        if (ids.isEmpty() || t.isIdentity) return
+        edit { it.copy(elements = SelectionEdits.transform(it.elements, ids, t)) }
+    }
+
+    /** What the canvas view's scene draws differently while a gesture runs. */
+    internal fun scenePreview(): ScenePreview? {
+        val t = gestures.transform
+        if (t.isIdentity) return null
+        return ScenePreview(transformed = selection, transform = t)
+    }
+
+    internal fun overlayChanged() {
+        listener?.onAppearanceChanged()
+    }
+
+    // Tool gestures from the canvas view, in canvas units.
+
+    internal fun toolStart(x: Float, y: Float) = gestures.start(x, y)
+
+    internal fun toolMove(x: Float, y: Float) = gestures.move(x, y)
+
+    internal fun toolEnd() {
+        gestures.end()
+        if (tool != Tool.SELECT) clearSelection()
+    }
+
+    internal fun toolCancel() = gestures.cancel()
 
     /** Removes every element, undoably. */
     fun clear() = edit { if (it.elements.isEmpty()) it else it.copy(elements = emptyList()) }
@@ -257,6 +376,10 @@ class CanvasController(initial: Note) {
 
     private fun setNote(n: Note) {
         _note.value = n
+        if (selection.isNotEmpty()) {
+            val ids = n.elements.mapTo(HashSet()) { it.id }
+            if (!ids.containsAll(selection)) selection = selection.filterTo(HashSet()) { it in ids }
+        }
         canUndo = history.canUndo
         canRedo = history.canRedo
         outlines.retain(n.elements.mapNotNullTo(HashSet()) { (it as? Stroke)?.id })
@@ -272,6 +395,9 @@ class CanvasController(initial: Note) {
     companion object {
         const val DEFAULT_WIDTH = 2.5f
         const val FIT_MARGIN_DP = 24f
+
+        /** How far [duplicateSelection] offsets the copies, right and down, canvas units. */
+        const val DUPLICATE_OFFSET = 16f
 
         /** A new empty note. */
         fun newNote(page: PageSetup = PageSetup.Infinite): Note {

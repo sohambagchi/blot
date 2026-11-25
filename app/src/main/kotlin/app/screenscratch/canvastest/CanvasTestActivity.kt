@@ -43,9 +43,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.screenscratch.canvas.CanvasController
+import app.screenscratch.canvas.EraserMode
 import app.screenscratch.canvas.FrontBufferContent
 import app.screenscratch.canvas.InkCanvasView
 import app.screenscratch.canvas.NoteCanvas
+import app.screenscratch.canvas.SelectMode
 import app.screenscratch.canvas.Tool
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Note
@@ -166,13 +168,31 @@ class CanvasTestActivity : ComponentActivity() {
                             .border(if (selected) 3.dp else 1.dp, if (selected) ink else muted)
                             .padding(4.dp)
                             .background(Color(argb))
-                            .clickable { c.color = Argb(argb); if (c.tool != Tool.PEN) c.tool = Tool.PEN },
+                            .clickable { c.color = Argb(argb); if (c.tool == Tool.ERASER || c.tool == Tool.PAN) c.tool = Tool.PEN },
                     )
                 }
-                for (t in listOf(Tool.PEN, Tool.ERASER, Tool.PAN)) {
+                for (t in Tool.entries) {
                     Action(t.label, text, selected = c.tool == t) { c.tool = t }
                 }
-                if (c.tool == Tool.SELECT) Action(Tool.SELECT.label, text, selected = true) { }
+                when (c.tool) {
+                    Tool.ERASER -> Action(if (c.eraserMode == EraserMode.PARTIAL) "Erase: part" else "Erase: whole", text) {
+                        c.eraserMode = if (c.eraserMode == EraserMode.PARTIAL) EraserMode.WHOLE_STROKE else EraserMode.PARTIAL
+                    }
+                    Tool.SELECT -> {
+                        Action(if (c.selectMode == SelectMode.LASSO) "Lasso" else "Rectangle", text) {
+                            c.selectMode = if (c.selectMode == SelectMode.LASSO) SelectMode.RECTANGLE else SelectMode.LASSO
+                        }
+                        if (c.hasSelection) {
+                            Action("Delete", text) { c.deleteSelection() }
+                            Action("Duplicate", text) { c.duplicateSelection() }
+                            Action("Front", text) { c.bringToFront() }
+                            Action("Forward", text) { c.bringForward() }
+                            Action("Backward", text) { c.sendBackward() }
+                            Action("Back", text) { c.sendToBack() }
+                        }
+                    }
+                    else -> Unit
+                }
                 Action("Undo", text.copy(color = if (c.canUndo) ink else muted)) { c.undo() }
                 Action("Redo", text.copy(color = if (c.canRedo) ink else muted)) { c.redo() }
                 Action("Pen only: ${onOff(c.penOnly)}", text) { c.penOnly = !c.penOnly }
