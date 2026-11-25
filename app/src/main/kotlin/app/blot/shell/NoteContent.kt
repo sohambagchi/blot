@@ -139,9 +139,19 @@ class MarkdownTextBoxRenderer(
     val cachedCount: Int get() = synchronized(layouts) { layouts.size() }
 
     override fun draw(canvas: Canvas, box: TextBox, color: Int) {
-        val key = Key(box.id, box.markdown, textBoxWidth(box), box.fontSize, color, dark)
-        val layout = synchronized(layouts) { layouts.get(key) } ?: build(box, key).also { synchronized(layouts) { layouts.put(key, it) } }
+        val layout = layout(box, color)
         synchronized(layout) { drawTextBox(canvas, box, layout) }
+    }
+
+    /** The laid-out markdown's height; colour and theme never change it, so the box's own colour is used. */
+    override fun measureHeight(box: TextBox): Float {
+        val layout = layout(box, box.color.value)
+        return synchronized(layout) { layout.height.toFloat() }
+    }
+
+    private fun layout(box: TextBox, color: Int): MarkdownLayout {
+        val key = Key(box.id, box.markdown, textBoxWidth(box), box.fontSize, color, dark)
+        return synchronized(layouts) { layouts.get(key) } ?: build(box, key).also { synchronized(layouts) { layouts.put(key, it) } }
     }
 
     private fun build(box: TextBox, key: Key): MarkdownLayout {
