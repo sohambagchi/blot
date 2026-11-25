@@ -5,7 +5,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import app.blot.core.edit.Similarity
-import app.blot.core.model.Arrowhead
+import app.blot.core.export.LineGeometry
 import app.blot.core.model.Element
 import app.blot.core.model.Image
 import app.blot.core.model.Line
@@ -15,10 +15,6 @@ import app.blot.core.model.Shape
 import app.blot.core.model.ShapeKind
 import app.blot.core.model.Stroke
 import app.blot.core.model.TextBox
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.sin
 
 /**
  * Draws a [Note] with plain `android.graphics`: background, pages, then elements in stacking
@@ -34,13 +30,16 @@ class SceneRenderer(
 ) {
     private class CachedPath(val xy: FloatArray, val path: Path)
 
+    /** A shape's or line's paths, built from [source]: its outline or shaft, its fill, and its arrowheads (filled or stroked). */
+    private class VectorPaths(val source: Element, val main: Path, val fill: Path?, val heads: List<Pair<Path, Boolean>>)
+
     private val paths = HashMap<String, CachedPath>()
+    private val vectors = HashMap<String, VectorPaths>()
     private val darkColors = HashMap<Int, Int>()
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val scratchPath = Path()
     private val rectF = RectF()
 
     /** Elements drawn by the latest [draw]; for tests and stats. */
@@ -89,6 +88,8 @@ class SceneRenderer(
         }
         canvas.restore()
         lastDrawnCount = drawn
+        // Elements no longer in the note (and drafts never committed) drop out now and then.
+        if (vectors.size > note.elements.size + VECTOR_SLACK) vectors.keys.retainAll(note.elements.mapTo(HashSet()) { it.id })
     }
 
     private fun drawPages(canvas: Canvas, pages: PageSetup.Pages, visible: app.blot.core.model.Rect, palette: CanvasPalette) {
@@ -142,16 +143,25 @@ class SceneRenderer(
         canvas.save()
         if (s.rotation != 0f) canvas.rotate(Math.toDegrees(s.rotation.toDouble()).toFloat(), f.centerX, f.centerY)
         rectF.set(f.left, f.top, f.right, f.bottom)
+        val outline = if (s.kind == ShapeKind.RECTANGLE || s.kind == ShapeKind.ELLIPSE) null else vectorPaths(s)
         s.fill?.let {
             fill.color = color(it.value, dark)
-            if (s.kind == ShapeKind.RECTANGLE) canvas.drawRect(rectF, fill) else canvas.drawOval(rectF, fill)
+            when {
+                outline != null -> canvas.drawPath(outline.fill!!, fill)
+                s.kind == ShapeKind.RECTANGLE -> canvas.drawRect(rectF, fill)
+                else -> canvas.drawOval(rectF, fill)
+            }
         }
         if (s.width > 0f) {
             line.color = color(s.color.value, dark)
             line.strokeWidth = s.width
             line.strokeJoin = Paint.Join.MITER
             line.strokeCap = Paint.Cap.BUTT
-            if (s.kind == ShapeKind.RECTANGLE) canvas.drawRect(rectF, line) else canvas.drawOval(rectF, line)
+            when {
+                outline != null -> canvas.drawPath(outline.main, line)
+                s.kind == ShapeKind.RECTANGLE -> canvas.drawRect(rectF, line)
+                else -> canvas.drawOval(rectF, line)
+            }
         }
         canvas.restore()
     }
@@ -163,58 +173,30 @@ class SceneRenderer(
         line.strokeJoin = Paint.Join.ROUND
         line.strokeCap = Paint.Cap.ROUND
         fill.color = c
-        val pts = l.points
-        val n = pts.size
-        // A triangle's line stops at the triangle's base so its round cap stays behind the head.
-        var sx = pts[0].x
-        var sy = pts[0].y
-        var ex = pts[n - 1].x
-        var ey = pts[n - 1].y
-        val len = l.arrowheadLength
-        if (l.startArrow == Arrowhead.TRIANGLE) towards(sx, sy, pts[1].x, pts[1].y, len * cos(ARROW_HALF_ANGLE)).let { sx = it.first; sy = it.second }
-        if (l.endArrow == Arrowhead.TRIANGLE) towards(ex, ey, pts[n - 2].x, pts[n - 2].y, len * cos(ARROW_HALF_ANGLE)).let { ex = it.first; ey = it.second }
-        scratchPath.rewind()
-        scratchPath.moveTo(sx, sy)
-        for (i in 1 until n - 1) scratchPath.lineTo(pts[i].x, pts[i].y)
-        scratchPath.lineTo(ex, ey)
-        canvas.drawPath(scratchPath, line)
-        drawArrowhead(canvas, l.startArrow, pts[0].x, pts[0].y, pts[1].x, pts[1].y, l)
-        drawArrowhead(canvas, l.endArrow, pts[n - 1].x, pts[n - 1].y, pts[n - 2].x, pts[n - 2].y, l)
+        val v = vectorPaths(l)
+        canvas.drawPath(v.main, line)
+        for ((path, filled) in v.heads) canvas.drawPath(path, if (filled) fill else line)
     }
 
-    /** The point [d] from ([x], [y]) towards ([tx], [ty]), or ([x], [y]) if they coincide. */
-    private fun towards(x: Float, y: Float, tx: Float, ty: Float, d: Float): Pair<Float, Float> {
-        val len = hypot(tx - x, ty - y)
-        if (len == 0f) return x to y
-        val k = minOf(d, len) / len
-        return (x + (tx - x) * k) to (y + (ty - y) * k)
-    }
-
-    // The head stays within Line.arrowheadLength of the tip: arms of length (L − width/2) with
-    // round caps, or a triangle whose base corners are L from the tip.
-    private fun drawArrowhead(canvas: Canvas, head: Arrowhead, tipX: Float, tipY: Float, fromX: Float, fromY: Float, l: Line) {
-        if (head == Arrowhead.NONE || (tipX == fromX && tipY == fromY)) return
-        val back = atan2(fromY - tipY, fromX - tipX)
-        val len = l.arrowheadLength
-        when (head) {
-            Arrowhead.ARROW -> {
-                val arm = (len - l.width / 2).coerceAtLeast(0f)
-                scratchPath.rewind()
-                scratchPath.moveTo(tipX + arm * cos(back + ARROW_HALF_ANGLE), tipY + arm * sin(back + ARROW_HALF_ANGLE))
-                scratchPath.lineTo(tipX, tipY)
-                scratchPath.lineTo(tipX + arm * cos(back - ARROW_HALF_ANGLE), tipY + arm * sin(back - ARROW_HALF_ANGLE))
-                canvas.drawPath(scratchPath, line)
-            }
-            Arrowhead.TRIANGLE -> {
-                scratchPath.rewind()
-                scratchPath.moveTo(tipX, tipY)
-                scratchPath.lineTo(tipX + len * cos(back + ARROW_HALF_ANGLE), tipY + len * sin(back + ARROW_HALF_ANGLE))
-                scratchPath.lineTo(tipX + len * cos(back - ARROW_HALF_ANGLE), tipY + len * sin(back - ARROW_HALF_ANGLE))
-                scratchPath.close()
-                canvas.drawPath(scratchPath, fill)
-            }
-            Arrowhead.NONE -> Unit
+    private fun vectorPaths(e: Element): VectorPaths {
+        vectors[e.id]?.let { if (it.source === e) return it }
+        val v = when (e) {
+            is Shape -> VectorPaths(e, e.outline.toPath(), e.outline.closedOnly().toPath(), emptyList())
+            is Line -> VectorPaths(
+                e, LineGeometry.shaftPath(e).toPath(), null,
+                HEAD_ENDS.mapNotNull { atStart ->
+                    LineGeometry.head(e, atStart)?.let { head ->
+                        val p = Path()
+                        head.points.forEachIndexed { i, q -> if (i == 0) p.moveTo(q.x, q.y) else p.lineTo(q.x, q.y) }
+                        if (head.filled) p.close()
+                        p to head.filled
+                    }
+                },
+            )
+            else -> error("no vector paths for ${e::class.simpleName}")
         }
+        vectors[e.id] = v
+        return v
     }
 
     private fun drawImage(canvas: Canvas, img: Image, palette: CanvasPalette) {
@@ -239,7 +221,8 @@ class SceneRenderer(
         /** Canvas units. */
         const val SHADOW_RADIUS = 6f
         const val SHADOW_DY = 1.5f
-        private const val ARROW_HALF_ANGLE = (Math.PI / 7).toFloat()
+        private val HEAD_ENDS = listOf(true, false)
+        private const val VECTOR_SLACK = 64
 
         /**
          * A closed path through an outline polygon, using quadratic curves between edge midpoints

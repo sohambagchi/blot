@@ -68,10 +68,11 @@ class NoteJsonTest {
 
     @Test
     fun fileStartsWithFormatAndUsesTypeTags() {
+        // Nothing in the note needs more than format 1.
         val text = NoteJson.encode(note)
-        assertTrue(text, text.startsWith("{\n  \"format\": $FORMAT_VERSION,\n"))
+        assertTrue(text, text.startsWith("{\n  \"format\": 1,\n"))
         val root = Json.parseToJsonElement(text).jsonObject
-        assertEquals(FORMAT_VERSION, root.getValue("format").jsonPrimitive.int)
+        assertEquals(1, root.getValue("format").jsonPrimitive.int)
         for (tag in listOf("stroke", "shape", "line", "text", "image", "pages")) {
             assertTrue(tag, text.contains("\"type\": \"$tag\""))
         }
@@ -116,7 +117,7 @@ class NoteJsonTest {
 
     @Test
     fun badFilesAreRejected() {
-        val good = NoteJson.encode(note)
+        val good = NoteJson.encode(note).replace("\"format\": 1", "\"format\": $FORMAT_VERSION")
         val bad = listOf(
             "[]",
             "{",

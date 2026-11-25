@@ -14,7 +14,8 @@ import app.blot.core.model.TextBox
 /**
  * Serialises a note as one SVG document whose user units are canvas units (dp), so the
  * `width`/`height` in CSS px match the note's size on an Android screen at 100%. Strokes are
- * filled outline paths, shapes and lines are SVG primitives, images are `data:` URIs, and text
+ * filled outline paths; rectangles and ellipses are `<rect>` and `<ellipse>`, other shapes and
+ * lines `<path>`s of their outlines; images are `data:` URIs, and text
  * boxes are one `<text>` per laid-out line with a `<tspan>` per styled run, their maths glyph
  * outlines as `<path>`s; no `foreignObject`.
  * Pages are stacked as in the note, each clipped to itself.
@@ -132,6 +133,8 @@ class SvgNoteWriter(
         when (s.kind) {
             ShapeKind.RECTANGLE -> rect(x, f, *paint)
             ShapeKind.ELLIPSE -> x.leaf("ellipse", "cx" to f.centerX, "cy" to f.centerY, "rx" to f.width / 2, "ry" to f.height / 2, *paint)
+            // Open inner edges (a cylinder's) wind with the silhouette, so the non-zero fill stays the silhouette.
+            else -> x.leaf("path", "d" to s.outline.svg(SvgXml::num), *paint)
         }
     }
 
@@ -140,7 +143,7 @@ class SvgNoteWriter(
             "fill" to "none", *stroke(l.color.value, l.width),
             "stroke-linecap" to "round", "stroke-linejoin" to "round",
         )
-        x.leaf("path", "d" to polyline(LineGeometry.shaft(l), close = false), *stroked)
+        x.leaf("path", "d" to LineGeometry.shaftPath(l).svg(SvgXml::num), *stroked)
         for (atStart in listOf(true, false)) {
             val head = LineGeometry.head(l, atStart) ?: continue
             if (head.filled) {

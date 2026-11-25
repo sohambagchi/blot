@@ -1,6 +1,5 @@
 package app.blot.core.model.format
 
-import app.blot.core.FORMAT_VERSION
 import app.blot.core.model.Argb
 import app.blot.core.model.AssetRef
 import app.blot.core.model.Image
@@ -48,8 +47,7 @@ class RotationAndGroupsJsonTest {
         val els = Json.parseToJsonElement(text).jsonObject.getValue("elements").jsonArray
         assertEquals(0.5f, els[0].jsonObject.getValue("rotation").jsonPrimitive.float)
         assertEquals(-1.25f, els[1].jsonObject.getValue("rotation").jsonPrimitive.float)
-        assertTrue(text.startsWith("{\n  \"format\": $FORMAT_VERSION,"))
-        assertEquals(1, FORMAT_VERSION)
+        assertTrue(text.startsWith("{\n  \"format\": 1,"))
     }
 
     @Test

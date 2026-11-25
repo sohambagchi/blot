@@ -1,18 +1,15 @@
 package app.blot.core.edit
 
+import app.blot.core.geometry.Polyline
 import app.blot.core.model.Element
 import app.blot.core.model.Image
 import app.blot.core.model.Line
 import app.blot.core.model.Rect
 import app.blot.core.model.Shape
-import app.blot.core.model.ShapeKind
 import app.blot.core.model.Stroke
 import app.blot.core.model.TextBox
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
 
 /**
  * Which elements a lasso or a tap selects, tested against what each element draws rather than
@@ -21,47 +18,29 @@ import kotlin.math.sin
  * The lasso rule is ported from xnotes' `SelectionMath` (MIT, Copyright (c) 2026 Shardul Vikram
  * Singh, https://github.com/shardulvs/xnotes-android): an element is in when some of what it
  * draws lies inside the loop, or comes within its ink's reach of the loop's line. What an element
- * draws is a stroke's sample path, a shape's or line's centre line, or a text box's or image's
- * frame. The bounds pre-filter follows Excalidraw's `lasso/utils.ts` (MIT, Copyright (c) 2020
- * Excalidraw, https://github.com/excalidraw/excalidraw).
+ * draws is a stroke's sample path, a shape's outline or a line's centre line (flattened from
+ * their paths), or a text box's or image's frame. The bounds pre-filter follows Excalidraw's
+ * `lasso/utils.ts` (MIT, Copyright (c) 2020 Excalidraw, https://github.com/excalidraw/excalidraw).
  */
 object Selection {
-    /** What an element draws: polylines (`x0, y0, x1, y1, …`), closed or open, and how far its ink spreads either side. */
-    class Drawn(val lines: List<FloatArray>, val closed: Boolean, val reach: Float)
-
-    /** Segments used for an ellipse's outline. */
-    private const val ELLIPSE_SEGMENTS = 48
+    /**
+     * What an element draws: polylines (`x0, y0, x1, y1, …`), each closed or open as [closed]
+     * says, and how far its ink spreads either side.
+     */
+    class Drawn(val lines: List<FloatArray>, val closed: List<Boolean>, val reach: Float) {
+        constructor(lines: List<FloatArray>, closed: Boolean, reach: Float) : this(lines, lines.map { closed }, reach)
+    }
 
     fun drawnOf(e: Element): Drawn = when (e) {
         is Stroke -> Drawn(listOf(FloatArray(e.points.size * 2) { if (it % 2 == 0) e.points[it / 2].x else e.points[it / 2].y }), false, e.width / 2f)
-        is Shape -> Drawn(listOf(shapeOutline(e)), true, e.width / 2f)
-        is Line -> Drawn(listOf(FloatArray(e.points.size * 2) { if (it % 2 == 0) e.points[it / 2].x else e.points[it / 2].y }), false, e.width / 2f)
+        is Shape -> shapeOutline(e).let { pl -> Drawn(pl.map { it.xy }, pl.map { it.closed }, e.width / 2f) }
+        is Line -> Drawn(listOf(e.centreline.flatten().first().xy), false, e.width / 2f)
         is TextBox -> Drawn(listOf(e.frame.rotatedCorners(e.rotation)), true, 0f)
         is Image -> Drawn(listOf(e.frame.rotatedCorners(e.rotation)), true, 0f)
     }
 
-    /** A shape's centre line as a closed polygon, rotated. */
-    fun shapeOutline(s: Shape): FloatArray {
-        val f = s.frame
-        val cx = f.centerX
-        val cy = f.centerY
-        val c = cos(s.rotation)
-        val sn = sin(s.rotation)
-        val local = when (s.kind) {
-            ShapeKind.RECTANGLE -> floatArrayOf(-f.width / 2, -f.height / 2, f.width / 2, -f.height / 2, f.width / 2, f.height / 2, -f.width / 2, f.height / 2)
-            ShapeKind.ELLIPSE -> FloatArray(ELLIPSE_SEGMENTS * 2) {
-                val a = (it / 2) * 2 * PI / ELLIPSE_SEGMENTS
-                if (it % 2 == 0) (f.width / 2 * cos(a)).toFloat() else (f.height / 2 * sin(a)).toFloat()
-            }
-        }
-        for (i in 0 until local.size / 2) {
-            val x = local[i * 2]
-            val y = local[i * 2 + 1]
-            local[i * 2] = cx + x * c - y * sn
-            local[i * 2 + 1] = cy + x * sn + y * c
-        }
-        return local
-    }
+    /** A shape's outline flattened and rotated: its closed silhouette and any open inner edges. */
+    fun shapeOutline(s: Shape): List<Polyline> = s.outline.flatten(s.rotation, s.frame.centerX, s.frame.centerY)
 
     private fun corners(r: Rect) = floatArrayOf(r.left, r.top, r.right, r.top, r.right, r.bottom, r.left, r.bottom)
 
@@ -96,7 +75,7 @@ object Selection {
         for (line in drawn.lines) {
             if (line.isNotEmpty() && PlaneMath.insideEvenOdd(ring, n, line[0], line[1])) return true
         }
-        for (line in drawn.lines) {
+        for ((k, line) in drawn.lines.withIndex()) {
             val m = line.size / 2
             for (i in 0 until n) {
                 val j = (i + 1) % n
@@ -104,7 +83,7 @@ object Selection {
                 if (min(ring[i * 2], ring[j * 2]) > area.right || max(ring[i * 2], ring[j * 2]) < area.left ||
                     min(ring[i * 2 + 1], ring[j * 2 + 1]) > area.bottom || max(ring[i * 2 + 1], ring[j * 2 + 1]) < area.top
                 ) continue
-                if (PlaneMath.polylineNear(line, m, drawn.closed, ring[i * 2], ring[i * 2 + 1], ring[j * 2], ring[j * 2 + 1], drawn.reach)) return true
+                if (PlaneMath.polylineNear(line, m, drawn.closed[k], ring[i * 2], ring[i * 2 + 1], ring[j * 2], ring[j * 2 + 1], drawn.reach)) return true
             }
         }
         return false
@@ -123,13 +102,13 @@ object Selection {
                 PlaneMath.capsuleTouchesPolygon(xy, xy.size / 2, x, y, x, y, tol)
             }
             is Shape -> {
-                val xy = shapeOutline(e)
-                (e.fill != null && PlaneMath.insideEvenOdd(xy, xy.size / 2, x, y)) ||
-                    PlaneMath.polylineNear(xy, xy.size / 2, true, x, y, x, y, e.width / 2f + tol)
+                val outline = shapeOutline(e)
+                (e.fill != null && outline.any { it.closed && PlaneMath.insideEvenOdd(it.xy, it.count, x, y) }) ||
+                    outline.any { PlaneMath.polylineNear(it.xy, it.count, it.closed, x, y, x, y, e.width / 2f + tol) }
             }
             is Line -> {
-                val d = drawnOf(e)
-                PlaneMath.polylineNear(d.lines[0], e.points.size, false, x, y, x, y, e.width / 2f + tol)
+                val xy = drawnOf(e).lines[0]
+                PlaneMath.polylineNear(xy, xy.size / 2, false, x, y, x, y, e.width / 2f + tol)
             }
             is TextBox -> e.frame.containsRotated(e.rotation, x, y, tol)
             is Image -> e.frame.containsRotated(e.rotation, x, y, tol)

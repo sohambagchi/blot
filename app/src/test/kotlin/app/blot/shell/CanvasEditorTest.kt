@@ -6,6 +6,7 @@ import app.blot.ui.editor.LineKind
 import app.blot.ui.editor.ShapeKind
 import app.blot.canvas.CanvasController
 import app.blot.core.model.Argb
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Orientation
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Paper
@@ -60,13 +61,14 @@ class CanvasEditorTest {
         editor.setShape(ShapeKind.Ellipse)
         assertEquals(app.blot.core.model.ShapeKind.ELLIPSE, controller.shapeKind)
         editor.setShape(ShapeKind.Triangle)
-        assertEquals(app.blot.core.model.ShapeKind.RECTANGLE, controller.shapeKind)
+        assertEquals(app.blot.core.model.ShapeKind.TRIANGLE, controller.shapeKind)
         editor.selectTool(Tool.Line)
         assertEquals(CanvasTool.LINE, controller.tool)
         editor.setLine(LineKind.DoubleArrow)
         assertEquals(LineArrows.BOTH, controller.lineArrows)
         editor.setLine(LineKind.Line)
         assertEquals(LineArrows.NONE, controller.lineArrows)
+        assertEquals(LineRoute.STRAIGHT, controller.lineRoute)
         editor.selectTool(Tool.Text)
         assertEquals(CanvasTool.TEXT, controller.tool)
         editor.selectTool(Tool.Eraser)
@@ -77,6 +79,31 @@ class CanvasEditorTest {
         assertEquals(CanvasTool.PAN, controller.tool)
         editor.setPenMode(PenMode.Pen)
         assertEquals(CanvasTool.PEN, controller.tool)
+    }
+
+    @Test
+    fun everyShapeAndLineKindMapsOneToOneWithoutAMessage() {
+        val shapes = ShapeKind.entries.map { editor.setShape(it); controller.shapeKind }
+        // Same names: RoundedRectangle is ROUNDED_RECTANGLE.
+        assertEquals(ShapeKind.entries.map { it.name.replace(Regex("(?<=.)([A-Z])"), "_$1").uppercase() }, shapes.map { it.name })
+        assertEquals(app.blot.core.model.ShapeKind.entries.toSet(), shapes.toSet())
+        assertEquals(CanvasTool.SHAPE, controller.tool)
+        val lines = LineKind.entries.associateWith { editor.setLine(it); controller.lineRoute to controller.lineArrows }
+        assertEquals(
+            mapOf(
+                LineKind.Line to (LineRoute.STRAIGHT to LineArrows.NONE),
+                LineKind.Arrow to (LineRoute.STRAIGHT to LineArrows.END),
+                LineKind.DoubleArrow to (LineRoute.STRAIGHT to LineArrows.BOTH),
+                LineKind.Elbow to (LineRoute.ELBOW to LineArrows.END),
+                LineKind.Curve to (LineRoute.CURVE to LineArrows.END),
+            ),
+            lines,
+        )
+        assertEquals(CanvasTool.LINE, controller.tool)
+        assertEquals(LineKind.Curve, editor.uiState.line)
+        editor.setShape(ShapeKind.Cylinder)
+        assertEquals(ShapeKind.Cylinder, editor.uiState.shape)
+        assertEquals(null, editor.uiState.message)
     }
 
     @Test

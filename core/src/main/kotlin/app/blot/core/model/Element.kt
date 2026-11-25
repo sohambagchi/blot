@@ -1,5 +1,8 @@
 package app.blot.core.model
 
+import app.blot.core.geometry.LineRoutes
+import app.blot.core.geometry.PathData
+import app.blot.core.geometry.ShapeOutlines
 import app.blot.core.model.format.StrokePointsSerializer
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -107,15 +110,29 @@ data class Stroke(
     }
 }
 
-/** The geometry of a [Shape]. */
+/**
+ * The geometry of a [Shape]; [app.blot.core.geometry.ShapeOutlines] gives each one's outline.
+ * Values after [ELLIPSE] need format 2 ([isFormat1]).
+ */
 @Serializable
 enum class ShapeKind {
     @SerialName("rectangle") RECTANGLE,
     @SerialName("ellipse") ELLIPSE,
+    @SerialName("roundedRectangle") ROUNDED_RECTANGLE,
+    @SerialName("triangle") TRIANGLE,
+    @SerialName("diamond") DIAMOND,
+    @SerialName("hexagon") HEXAGON,
+    @SerialName("parallelogram") PARALLELOGRAM,
+    @SerialName("cylinder") CYLINDER,
+    ;
+
+    /** True for the kinds format 1 has. */
+    val isFormat1: Boolean get() = this == RECTANGLE || this == ELLIPSE
 }
 
 /**
- * A closed shape inscribed in [frame], rotated about the frame's centre.
+ * A closed shape inscribed in [frame], rotated about the frame's centre. Its outline is
+ * [outline]; the outline is stroked with mitred joins.
  *
  * @property rotation radians, clockwise on screen (y grows down).
  * @property width outline width in canvas units, centred on the geometry; 0 draws no outline.
@@ -137,12 +154,14 @@ data class Shape(
         require(width >= 0f) { "shape $id has width $width" }
     }
 
-    override val bounds: Rect
-        get() {
+    /** The outline in [frame], unrotated: drawn turned by [rotation] about the frame's centre. */
+    val outline: PathData by lazy(LazyThreadSafetyMode.PUBLICATION) { ShapeOutlines.of(kind, frame) }
+
+    override val bounds: Rect by lazy(LazyThreadSafetyMode.PUBLICATION) {
             val c = abs(cos(rotation))
             val s = abs(sin(rotation))
             val half = width / 2f
-            return when (kind) {
+            when (kind) {
                 // Corners of the outline's outer edge (mitred), rotated.
                 ShapeKind.RECTANGLE -> {
                     val hw = frame.width / 2f + half
@@ -159,6 +178,7 @@ data class Shape(
                         sqrt(a * a * s * s + b * b * c * c) + half,
                     )
                 }
+                else -> outline.strokeBounds(width, rotation, frame.centerX, frame.centerY)
             }
         }
 }
@@ -173,11 +193,27 @@ enum class Arrowhead {
     @SerialName("triangle") TRIANGLE,
 }
 
+/** How a [Line] runs through its points. Anything but [STRAIGHT] needs format 2. */
+@Serializable
+enum class LineRoute {
+    /** Straight segments from point to point. */
+    @SerialName("straight") STRAIGHT,
+
+    /** Straight segments (right-angled when drawn) whose corners are rounded; see [Line.cornerRadius]. */
+    @SerialName("elbow") ELBOW,
+
+    /** A smooth curve through every point. */
+    @SerialName("curve") CURVE,
+}
+
 /**
- * A straight polyline through [points] (at least two), optionally with arrowheads at its ends.
+ * A line through [points] (at least two), optionally with arrowheads at its ends. [route] says
+ * how it runs between them; [centreline] is the path it draws.
  *
  * @property width line width in canvas units.
+ * @property route written only when not [LineRoute.STRAIGHT].
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("line")
 data class Line(
@@ -187,6 +223,7 @@ data class Line(
     val width: Float,
     val startArrow: Arrowhead = Arrowhead.NONE,
     val endArrow: Arrowhead = Arrowhead.NONE,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val route: LineRoute = LineRoute.STRAIGHT,
     override val group: String? = null,
 ) : Element {
     init {
@@ -200,18 +237,26 @@ data class Line(
      */
     val arrowheadLength: Float get() = max(ARROWHEAD_MIN_LENGTH, ARROWHEAD_LENGTH_PER_WIDTH * width)
 
-    override val bounds: Rect
-        get() {
-            val box = Rect.fromEdges(
-                points.minOf { it.x }, points.minOf { it.y }, points.maxOf { it.x }, points.maxOf { it.y },
-            )
-            val arrows = startArrow != Arrowhead.NONE || endArrow != Arrowhead.NONE
-            return box.inflate(width / 2f + if (arrows) arrowheadLength else 0f)
-        }
+    /** An elbow's corner radius in canvas units; a corner takes at most half of either segment. */
+    val cornerRadius: Float get() = max(CORNER_MIN_RADIUS, CORNER_RADIUS_PER_WIDTH * width)
+
+    /** The path the line's centre follows, without arrowheads. */
+    val centreline: PathData by lazy(LazyThreadSafetyMode.PUBLICATION) { LineRoutes.path(points, route, cornerRadius) }
+
+    override val bounds: Rect by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        // A curve stays within its Bézier control points; other routes within their points.
+        val box = if (route == LineRoute.CURVE) centreline.controlBounds() else Rect.fromEdges(
+            points.minOf { it.x }, points.minOf { it.y }, points.maxOf { it.x }, points.maxOf { it.y },
+        )
+        val arrows = startArrow != Arrowhead.NONE || endArrow != Arrowhead.NONE
+        box.inflate(width / 2f + if (arrows) arrowheadLength else 0f)
+    }
 
     companion object {
         const val ARROWHEAD_LENGTH_PER_WIDTH = 4f
         const val ARROWHEAD_MIN_LENGTH = 8f
+        const val CORNER_RADIUS_PER_WIDTH = 4f
+        const val CORNER_MIN_RADIUS = 12f
     }
 }
 
