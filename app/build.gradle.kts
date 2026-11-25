@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Untracked overrides for the signing key: signing.store and signing.password.
+val signingProps = Properties().apply {
+    rootProject.file("signing.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val signingStore = file(signingProps.getProperty("signing.store", "${System.getProperty("user.home")}/.android/blot.jks"))
 
 android {
     namespace = "app.blot"
@@ -17,8 +25,26 @@ android {
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.13.4"
+        versionName = "0.13.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        // One key for every build, kept outside the repo, so updates install over each other.
+        // Without it (a fresh clone, CI) builds fall back to the debug key.
+        create("blot") {
+            storeFile = signingStore
+            storePassword = signingProps.getProperty("signing.password", "blotkey")
+            keyAlias = "blot"
+            keyPassword = signingProps.getProperty("signing.password", "blotkey")
+        }
+    }
+
+    buildTypes {
+        if (signingStore.exists()) {
+            debug { signingConfig = signingConfigs.getByName("blot") }
+            release { signingConfig = signingConfigs.getByName("blot") }
+        }
     }
 
     buildFeatures { compose = true }

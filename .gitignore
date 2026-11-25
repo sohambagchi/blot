@@ -8,3 +8,4 @@ captures/
 .direnv/
 result
 .claude/worktrees/
+signing.properties

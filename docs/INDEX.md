@@ -9,6 +9,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2213-fixed-signing-key-outside-the-repo](adr/2026-11-24-2213-fixed-signing-key-outside-the-repo.md) — builds sign with ~/.android/blot.jks so updates install over each other
 - [2026-11-24-2149-pen-buttons-pointer-and-eraser](adr/2026-11-24-2149-pen-buttons-pointer-and-eraser.md) — secondary pen button switches to the pointer; primary held erases; fingers pan in pen-only mode
 - [2026-11-24-2149-rotation-and-groups-in-note-json](adr/2026-11-24-2149-rotation-and-groups-in-note-json.md) — optional rotation on text boxes and images, optional group ids, no format bump
 - [2026-11-24-2158-text-box-maths-ported-typesetter](adr/2026-11-24-2158-text-box-maths-ported-typesetter.md) — LaTeX maths in text boxes through a ported iosMath typesetter and a bundled Latin Modern Math subset

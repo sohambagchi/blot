@@ -16,7 +16,11 @@ ANDROID_SERIAL=emulator-5556 ./gradlew :app:connectedDebugAndroidTest
 EMU_PORT=5556 emu-shot           # screenshot of the tablet emulator
 ```
 
-The main screen's "Pen test" measures a device's pen and shares a JSON report; install `app/build/outputs/apk/debug/app-debug.apk` to run it without adb.
+Builds are signed with `~/.android/blot.jks`, outside the repo, so every build installs over the last. Create it once with
+`keytool -genkeypair -keystore ~/.android/blot.jks -alias blot -keyalg EC -groupname secp256r1 -validity 10000 -storepass blotkey -keypass blotkey -dname CN=blot`.
+An untracked `signing.properties` (`signing.store`, `signing.password`) points elsewhere; without the key, builds use the debug key.
+
+Install `app/build/outputs/apk/debug/app-debug.apk` to try a build without adb. The developer screens (pen test, canvas test, UI preview) are under Settings → long-press About.
 
 Docs live in [docs/INDEX.md](docs/INDEX.md). Open work is in [docs/TODO.md](docs/TODO.md).
 
