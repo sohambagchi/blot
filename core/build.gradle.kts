@@ -2,6 +2,7 @@
 // so its tests run on the host in seconds.
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 java {
@@ -13,5 +14,7 @@ kotlin {
 }
 
 dependencies {
+    // api: the model types expose their generated serializers.
+    api(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }
