@@ -32,7 +32,8 @@ class NoteUnreadableException(id: NoteId) : IOException("note $id is unreadable"
  * this layer) and `assets/` (files named by content hash).
  *
  * See docs/adr/2026-11-24-1742-storage-saf-directory-per-note.md and
- * docs/adr/2026-11-24-1923-note-directory-named-by-id.md.
+ * docs/adr/2026-11-24-1934-note-directory-named-by-id.md and
+ * docs/adr/2026-11-24-1934-note-json-wins-over-tmp.md.
  */
 interface NoteStore {
     /** Creates a note with [content] and returns its new id. */
