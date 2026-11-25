@@ -30,13 +30,16 @@ class SceneRenderer(
 ) {
     private class CachedPath(val xy: FloatArray, val path: Path)
 
+    /** A shape's or line's paths, built from [source]: its outline or shaft, its fill, and its arrowheads (filled or stroked). */
+    private class VectorPaths(val source: Element, val main: Path, val fill: Path?, val heads: List<Pair<Path, Boolean>>)
+
     private val paths = HashMap<String, CachedPath>()
+    private val vectors = HashMap<String, VectorPaths>()
     private val darkColors = HashMap<Int, Int>()
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val scratchPath = Path()
     private val rectF = RectF()
 
     /** Elements drawn by the latest [draw]; for tests and stats. */
@@ -85,6 +88,8 @@ class SceneRenderer(
         }
         canvas.restore()
         lastDrawnCount = drawn
+        // Elements no longer in the note (and drafts never committed) drop out now and then.
+        if (vectors.size > note.elements.size + VECTOR_SLACK) vectors.keys.retainAll(note.elements.mapTo(HashSet()) { it.id })
     }
 
     private fun drawPages(canvas: Canvas, pages: PageSetup.Pages, visible: app.blot.core.model.Rect, palette: CanvasPalette) {
@@ -138,11 +143,11 @@ class SceneRenderer(
         canvas.save()
         if (s.rotation != 0f) canvas.rotate(Math.toDegrees(s.rotation.toDouble()).toFloat(), f.centerX, f.centerY)
         rectF.set(f.left, f.top, f.right, f.bottom)
-        val outline = if (s.kind == ShapeKind.RECTANGLE || s.kind == ShapeKind.ELLIPSE) null else s.outline
+        val outline = if (s.kind == ShapeKind.RECTANGLE || s.kind == ShapeKind.ELLIPSE) null else vectorPaths(s)
         s.fill?.let {
             fill.color = color(it.value, dark)
             when {
-                outline != null -> canvas.drawPath(outline.closedOnly().toPath(scratchPath), fill)
+                outline != null -> canvas.drawPath(outline.fill!!, fill)
                 s.kind == ShapeKind.RECTANGLE -> canvas.drawRect(rectF, fill)
                 else -> canvas.drawOval(rectF, fill)
             }
@@ -153,7 +158,7 @@ class SceneRenderer(
             line.strokeJoin = Paint.Join.MITER
             line.strokeCap = Paint.Cap.BUTT
             when {
-                outline != null -> canvas.drawPath(outline.toPath(scratchPath), line)
+                outline != null -> canvas.drawPath(outline.main, line)
                 s.kind == ShapeKind.RECTANGLE -> canvas.drawRect(rectF, line)
                 else -> canvas.drawOval(rectF, line)
             }
@@ -168,18 +173,30 @@ class SceneRenderer(
         line.strokeJoin = Paint.Join.ROUND
         line.strokeCap = Paint.Cap.ROUND
         fill.color = c
-        canvas.drawPath(LineGeometry.shaftPath(l).toPath(scratchPath), line)
-        for (atStart in HEAD_ENDS) {
-            val head = LineGeometry.head(l, atStart) ?: continue
-            scratchPath.rewind()
-            head.points.forEachIndexed { i, p -> if (i == 0) scratchPath.moveTo(p.x, p.y) else scratchPath.lineTo(p.x, p.y) }
-            if (head.filled) {
-                scratchPath.close()
-                canvas.drawPath(scratchPath, fill)
-            } else {
-                canvas.drawPath(scratchPath, line)
-            }
+        val v = vectorPaths(l)
+        canvas.drawPath(v.main, line)
+        for ((path, filled) in v.heads) canvas.drawPath(path, if (filled) fill else line)
+    }
+
+    private fun vectorPaths(e: Element): VectorPaths {
+        vectors[e.id]?.let { if (it.source === e) return it }
+        val v = when (e) {
+            is Shape -> VectorPaths(e, e.outline.toPath(), e.outline.closedOnly().toPath(), emptyList())
+            is Line -> VectorPaths(
+                e, LineGeometry.shaftPath(e).toPath(), null,
+                HEAD_ENDS.mapNotNull { atStart ->
+                    LineGeometry.head(e, atStart)?.let { head ->
+                        val p = Path()
+                        head.points.forEachIndexed { i, q -> if (i == 0) p.moveTo(q.x, q.y) else p.lineTo(q.x, q.y) }
+                        if (head.filled) p.close()
+                        p to head.filled
+                    }
+                },
+            )
+            else -> error("no vector paths for ${e::class.simpleName}")
         }
+        vectors[e.id] = v
+        return v
     }
 
     private fun drawImage(canvas: Canvas, img: Image, palette: CanvasPalette) {
@@ -204,7 +221,8 @@ class SceneRenderer(
         /** Canvas units. */
         const val SHADOW_RADIUS = 6f
         const val SHADOW_DY = 1.5f
-        private val HEAD_ENDS = booleanArrayOf(true, false)
+        private val HEAD_ENDS = listOf(true, false)
+        private const val VECTOR_SLACK = 64
 
         /**
          * A closed path through an outline polygon, using quadratic curves between edge midpoints

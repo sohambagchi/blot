@@ -9,8 +9,13 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.blot.canvas.EraserMode
+import app.blot.canvas.LineArrows
 import app.blot.canvas.Tool
+import app.blot.core.model.Arrowhead
+import app.blot.core.model.Line
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Shape
+import app.blot.core.model.format.NoteJson
 import app.blot.core.model.ShapeKind
 import app.blot.core.model.Stroke
 import app.blot.core.model.TextBox
@@ -96,6 +101,84 @@ class CanvasToolsDeviceTest {
             assertEquals(200f / v.scale, shape.frame.width, 0.1f)
             assertEquals(120f / v.scale, shape.frame.height, 0.1f)
             assertEquals(read(s) { it.controller.width }, shape.width)
+        }
+    }
+
+    @Test
+    fun everyNewShapeKindDraws() {
+        launch().use { s ->
+            val o = origin(s)
+            setTool(s, Tool.SHAPE)
+            val kinds = ShapeKind.entries.filter { !it.isFormat1 }
+            for ((i, kind) in kinds.withIndex()) {
+                s.onActivity { it.controller.shapeKind = kind }
+                val x0 = 120f + (i % 3) * 260f
+                val y0 = 260f + (i / 3) * 220f
+                stylus(o, FloatArray(11) { x0 + it * 18f }, FloatArray(11) { y0 + it * 15f })
+            }
+            val v = read(s) { it.controller.viewport }
+            val shapes = read(s) { it.controller.note.value.elements.map { e -> e as Shape } }
+            assertEquals(kinds, shapes.map { it.kind })
+            for ((i, shape) in shapes.withIndex()) {
+                assertEquals(v.toCanvasX(120f + (i % 3) * 260f), shape.frame.left, 0.1f)
+                assertEquals(v.toCanvasY(260f + (i / 3) * 220f), shape.frame.top, 0.1f)
+                assertEquals(180f / v.scale, shape.frame.width, 0.1f)
+                assertEquals(150f / v.scale, shape.frame.height, 0.1f)
+            }
+            // Picked by its outline: a tap in the hexagon's frame's corner misses it, one on its top edge selects it.
+            val hex = shapes.single { it.kind == ShapeKind.HEXAGON }
+            setTool(s, Tool.SELECT)
+            val cx = v.toScreenX(hex.frame.left) + 4f
+            val cy = v.toScreenY(hex.frame.top) + 4f
+            stylus(o, floatArrayOf(cx, cx), floatArrayOf(cy, cy))
+            assertEquals(emptySet<String>(), read(s) { it.controller.selection })
+            val hx = v.toScreenX(hex.frame.centerX)
+            val hy = v.toScreenY(hex.frame.top)
+            stylus(o, floatArrayOf(hx, hx), floatArrayOf(hy, hy))
+            assertEquals(setOf(hex.id), read(s) { it.controller.selection })
+        }
+    }
+
+    @Test
+    fun elbowAndCurveDraw() {
+        launch().use { s ->
+            val o = origin(s)
+            setTool(s, Tool.LINE)
+            s.onActivity {
+                it.controller.lineRoute = LineRoute.ELBOW
+                it.controller.lineArrows = LineArrows.END
+                it.controller.arrowhead = Arrowhead.ARROW
+            }
+            stylus(o, FloatArray(11) { 200f + it * 30f }, FloatArray(11) { 300f + it * 12f })
+            // A curve: half a circle dragged from left to right, bulging up.
+            s.onActivity { it.controller.lineRoute = LineRoute.CURVE }
+            val n = 40
+            stylus(
+                o,
+                FloatArray(n) { 200f + 300f * it / (n - 1) },
+                FloatArray(n) { 700f - 150f * kotlin.math.sin(Math.PI * it / (n - 1)).toFloat() },
+            )
+            val v = read(s) { it.controller.viewport }
+            val (elbow, curve) = read(s) { it.controller.note.value.elements.map { e -> e as Line } }
+            assertEquals(LineRoute.ELBOW, elbow.route)
+            assertEquals(4, elbow.points.size)
+            assertEquals(elbow.points[0].y, elbow.points[1].y)
+            assertEquals(elbow.points[1].x, elbow.points[2].x)
+            assertEquals(v.toCanvasX(350f), elbow.points[1].x, 0.2f)
+            assertEquals(v.toCanvasX(500f), elbow.points[3].x, 0.2f)
+            assertEquals(Arrowhead.ARROW, elbow.endArrow)
+
+            assertEquals(LineRoute.CURVE, curve.route)
+            assertTrue("${curve.points.size}", curve.points.size in 3..8)
+            assertEquals(v.toCanvasX(200f), curve.points.first().x, 0.2f)
+            assertEquals(v.toCanvasX(500f), curve.points.last().x, 0.2f)
+            // It passes over the top of the arc.
+            assertTrue(curve.bounds.top < v.toCanvasY(560f))
+            // Saved as format 2 and read back the same.
+            val note = read(s) { it.controller.note.value }
+            val text = NoteJson.encode(note)
+            assertTrue(text.startsWith("{\n  \"format\": 2,"))
+            assertEquals(note, NoteJson.decode(text))
         }
     }
 
