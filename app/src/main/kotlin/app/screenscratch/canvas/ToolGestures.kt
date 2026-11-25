@@ -10,12 +10,14 @@ import app.screenscratch.core.model.Line
 import app.screenscratch.core.model.Point
 import app.screenscratch.core.model.Rect
 import app.screenscratch.core.model.Shape
+import app.screenscratch.core.model.TextBox
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The select, shape and line tools' pen gestures, in canvas units. While a gesture runs
+ * The select, shape, line and text tools' pen gestures, in canvas units. While a gesture runs
  * the note is unchanged and the canvas view draws [lasso], [marquee], [draft] and the selection
  * through [transform]; the gesture's end applies it as one undoable edit.
  */
@@ -35,6 +37,7 @@ internal class ToolGestures(private val c: CanvasController) {
     ) : Gesture(x0, y0)
     private class DrawShape(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
     private class DrawLine(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
+    private class PlaceText(x0: Float, y0: Float) : Gesture(x0, y0)
 
     private var gesture: Gesture? = null
     private var lastX = 0f
@@ -71,6 +74,7 @@ internal class ToolGestures(private val c: CanvasController) {
             Tool.SELECT -> selectStart(x, y)
             Tool.SHAPE -> DrawShape(x, y, Element.newId())
             Tool.LINE -> DrawLine(x, y, Element.newId())
+            Tool.TEXT -> PlaceText(x, y)
             else -> null
         }
         if (gesture is Lasso) {
@@ -128,6 +132,7 @@ internal class ToolGestures(private val c: CanvasController) {
                 g.id, c.shapeKind, Snap.dragRect(g.x0, g.y0, x, y, c.constrainShapes), c.color, c.width, c.shapeFill,
             )
             is DrawLine -> draft = if (isTap(g)) null else line(g, x, y)
+            is PlaceText -> Unit
         }
         c.overlayChanged()
     }
@@ -177,8 +182,26 @@ internal class ToolGestures(private val c: CanvasController) {
                     c.edit { it.copy(elements = it.elements + d) }
                 }
             }
+            is PlaceText -> placeText(g, x, y, tap)
         }
         c.overlayChanged()
+    }
+
+    private fun placeText(g: PlaceText, x: Float, y: Float, tap: Boolean) {
+        if (tap) {
+            val hit = c.note.value.elements.lastOrNull { it is TextBox && it.frame.inflate(dp(PICK_DP)).contains(g.x0, g.y0) }
+            if (hit is TextBox) {
+                c.beginTextEdit(hit)
+                return
+            }
+        }
+        val size = c.textSize
+        val frame = if (tap) {
+            Rect(g.x0, g.y0 - size * 0.6f, CanvasController.DEFAULT_TEXT_WIDTH, size * TEXT_LINE_HEIGHT)
+        } else {
+            Rect(min(g.x0, x), min(g.y0, y), max(abs(x - g.x0), MIN_TEXT_WIDTH), size * TEXT_LINE_HEIGHT)
+        }
+        c.beginTextEdit(TextBox(Element.newId(), frame, "", size, c.color))
     }
 
     fun cancel() {
@@ -225,6 +248,12 @@ internal class ToolGestures(private val c: CanvasController) {
 
         /** Scaling stops when the selection's longer side would be smaller than this, canvas units. */
         const val MIN_SCALED_SIZE = 4f
+
+        /** A new text box's height, in font sizes, before it is measured. */
+        const val TEXT_LINE_HEIGHT = 1.4f
+
+        /** The narrowest text box a drag makes, canvas units. */
+        const val MIN_TEXT_WIDTH = 40f
     }
 }
 

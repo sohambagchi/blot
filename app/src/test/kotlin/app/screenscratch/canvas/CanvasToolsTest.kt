@@ -10,6 +10,7 @@ import app.screenscratch.core.model.Shape
 import app.screenscratch.core.model.ShapeKind
 import app.screenscratch.core.model.Stroke
 import app.screenscratch.core.model.StrokePoint
+import app.screenscratch.core.model.TextBox
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -17,6 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import kotlin.math.atan2
+import kotlin.math.roundToInt
 
 /** The editing tools driven through [CanvasController], as the canvas view drives them, in canvas units at 100%. */
 class CanvasToolsTest {
@@ -307,5 +309,84 @@ class CanvasToolsTest {
         c.drag(0f, 0f, 100f, 70f)
         assertEquals(70f, (c.elements.last() as Line).points[1].y)
         c.assertUndoRedo(before)
+    }
+
+    // Text boxes.
+
+    @Test
+    fun textToolCreatesABoxSizedToItsText() {
+        val c = controller()
+        c.textMeasurer = { (it.markdown.lines().size * it.fontSize * 1.25f) }
+        c.tool = Tool.TEXT
+        c.tap(100f, 100f)
+        val editing = c.editingText!!
+        assertTrue("not in the note until committed", c.elements.isEmpty())
+        assertEquals(100f, editing.frame.x)
+        assertEquals(CanvasController.DEFAULT_TEXT_WIDTH, editing.frame.width)
+        assertEquals(setOf(editing.id), c.scenePreview()!!.hidden)
+        c.updateTextDraft("# Title\nbody\nmore")
+        c.finishTextEdit()
+        assertNull(c.editingText)
+        val box = c.elements.single() as TextBox
+        assertEquals("# Title\nbody\nmore", box.markdown)
+        assertEquals(3 * CanvasController.DEFAULT_TEXT_SIZE * 1.25f, box.frame.height)
+        c.assertUndoRedo(emptyList())
+    }
+
+    @Test
+    fun tappingABoxWithTheTextToolEditsIt() {
+        val existing = TextBox("t", Rect(0f, 0f, 200f, 30f), "hello", 18f, Argb.BLACK)
+        val c = controller(existing)
+        c.textMeasurer = { 60f }
+        c.tool = Tool.TEXT
+        c.tap(50f, 15f)
+        assertEquals("t", c.editingText!!.id)
+        assertEquals("hello", c.textDraft)
+        c.updateTextDraft("hello\nworld")
+        c.finishTextEdit()
+        val box = c.elements.single() as TextBox
+        assertEquals("t", box.id)
+        assertEquals("hello\nworld", box.markdown)
+        assertEquals(60f, box.frame.height)
+        c.assertUndoRedo(listOf(existing))
+    }
+
+    @Test
+    fun blankTextRemovesTheBoxOrAddsNone() {
+        val existing = TextBox("t", Rect(0f, 0f, 200f, 30f), "hello", 18f, Argb.BLACK)
+        val c = controller(existing)
+        c.tool = Tool.TEXT
+        c.tap(300f, 300f)
+        c.finishTextEdit()
+        assertEquals(listOf("t"), c.ids)
+        assertFalse(c.canUndo)
+        c.editTextBox("t")
+        c.updateTextDraft("  ")
+        c.finishTextEdit()
+        assertTrue(c.elements.isEmpty())
+        c.assertUndoRedo(listOf(existing))
+    }
+
+    @Test
+    fun undoFinishesAnOpenTextEditFirst() {
+        val c = controller()
+        c.tool = Tool.TEXT
+        c.tap(10f, 10f)
+        c.updateTextDraft("x")
+        c.undo()
+        assertNull(c.editingText)
+        assertTrue(c.elements.isEmpty())
+        c.redo()
+        assertEquals("x", (c.elements.single() as TextBox).markdown)
+    }
+
+    @Test
+    fun aTextDragSetsTheBoxWidth() {
+        val c = controller()
+        c.tool = Tool.TEXT
+        c.drag(10f, 10f, 160f, 20f)
+        assertEquals(150f, c.editingText!!.frame.width)
+        assertEquals(10f, c.editingText!!.frame.x)
+        assertEquals(150, c.editingText!!.frame.width.roundToInt())
     }
 }

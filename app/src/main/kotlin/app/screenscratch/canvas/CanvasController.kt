@@ -16,10 +16,12 @@ import app.screenscratch.core.model.PageSetup
 import app.screenscratch.core.model.Rect
 import app.screenscratch.core.model.ShapeKind
 import app.screenscratch.core.model.Stroke
+import app.screenscratch.core.model.TextBox
 import app.screenscratch.core.model.bringForward
 import app.screenscratch.core.model.bringToFront
 import app.screenscratch.core.model.sendBackward
 import app.screenscratch.core.model.sendToBack
+import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,14 +48,15 @@ class CanvasController(initial: Note) {
     private var _tool by mutableStateOf(Tool.PEN)
 
     /**
-     * What pen drags do; the pen's cycle button changes it too. Leaving [Tool.SELECT] clears the
-     * selection.
+     * What pen drags do; the pen's cycle button changes it too. Changing it finishes any text
+     * edit, and leaving [Tool.SELECT] clears the selection.
      */
     var tool: Tool
         get() = _tool
         set(v) {
             if (v == _tool) return
             _tool = v
+            finishTextEdit()
             // A cycle-button press mid-drag lets the drag finish on the selection first; see toolEnd.
             if (v != Tool.SELECT && !gestures.active) clearSelection()
         }
@@ -82,6 +85,9 @@ class CanvasController(initial: Note) {
     /** Snaps new lines to multiples of 15°. */
     var snapAngles by mutableStateOf(true)
 
+    /** Body font size of new text boxes, canvas units. */
+    var textSize by mutableFloatStateOf(DEFAULT_TEXT_SIZE)
+
     /** Ids of the selected elements, in no particular order. Every id is in the note. */
     var selection by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -90,6 +96,21 @@ class CanvasController(initial: Note) {
 
     /** The union of the selected elements' bounds, or null when nothing is selected. */
     val selectionBounds: Rect? get() = if (selection.isEmpty()) null else Selection.bounds(_note.value.elements, selection)
+
+    /**
+     * The text box being edited, as it was when editing began, or null. A new box is not in the
+     * note until [finishTextEdit].
+     */
+    var editingText by mutableStateOf<TextBox?>(null)
+        private set
+
+    private var textIsNew = false
+
+    /** The markdown typed into the text box being edited so far. */
+    internal var textDraft = ""
+
+    /** Measures a text box's laid-out height, canvas units; the canvas view sets it from its renderer. */
+    internal var textMeasurer: (TextBox) -> Float = { it.frame.height }
 
     /** Colour of new strokes. */
     var color by mutableStateOf(Argb.BLACK)
@@ -152,13 +173,20 @@ class CanvasController(initial: Note) {
         fun onNoteChanged()
         fun onViewportChanged()
         fun onAppearanceChanged()
+
+        /** [editingText] changed: show, move or hide the text editor. */
+        fun onTextEditChanged() {}
     }
 
-    /** Replaces the note, clears the history and fits the view to it. */
+    /** Replaces the note, clears the history and fits the view to it. Drops any text edit unsaved. */
     fun load(note: Note) {
         history.clear()
         gestureStart = null
         gestures.cancel()
+        if (editingText != null) {
+            editingText = null
+            listener?.onTextEditChanged()
+        }
         selection = emptySet()
         setNote(note)
         fitPending = true
@@ -174,13 +202,16 @@ class CanvasController(initial: Note) {
         setNote(touch(after))
     }
 
+    /** Steps back one edit. A text edit in progress is finished first, so it is the step undone. */
     fun undo() {
+        finishTextEdit()
         gestures.cancel()
         val n = history.undo(_note.value) ?: return
         setNote(n)
     }
 
     fun redo() {
+        finishTextEdit()
         gestures.cancel()
         val n = history.redo(_note.value) ?: return
         setNote(n)
@@ -243,11 +274,66 @@ class CanvasController(initial: Note) {
         edit { it.copy(elements = SelectionEdits.transform(it.elements, ids, t)) }
     }
 
-    /** What the canvas view's scene draws differently while a gesture runs. */
+    // Text boxes.
+
+    /** Starts editing the text box [id] in the canvas's text editor; false if there is no such box. */
+    fun editTextBox(id: String): Boolean {
+        val box = _note.value.element(id) as? TextBox ?: return false
+        beginTextEdit(box)
+        return true
+    }
+
+    internal fun beginTextEdit(box: TextBox) {
+        finishTextEdit()
+        clearSelection()
+        textIsNew = _note.value.element(box.id) == null
+        textDraft = box.markdown
+        editingText = box
+        listener?.onTextEditChanged()
+        overlayChanged()
+    }
+
+    /** The text editor's content changed. */
+    internal fun updateTextDraft(markdown: String) {
+        textDraft = markdown
+    }
+
+    /**
+     * Ends the text edit, if any, as one undoable step: the box gets the typed markdown and its
+     * frame's height becomes the laid-out height. A box left blank is removed (a new one is never
+     * added).
+     */
+    fun finishTextEdit() {
+        val box = editingText ?: return
+        editingText = null
+        listener?.onTextEditChanged()
+        val md = textDraft
+        val isNew = textIsNew
+        if (md.isBlank()) {
+            if (!isNew) edit { n -> n.copy(elements = n.elements.filterNot { it.id == box.id }) }
+            overlayChanged()
+            return
+        }
+        val typed = box.copy(markdown = md)
+        val height = max(MIN_TEXT_HEIGHT, textMeasurer(typed))
+        val done = typed.copy(frame = typed.frame.copy(height = height))
+        edit { n ->
+            if (isNew) n.copy(elements = n.elements + done)
+            else n.copy(elements = n.elements.map { if (it.id == done.id) done else it })
+        }
+        overlayChanged()
+    }
+
+    /** What the canvas view's scene draws differently while a gesture or text edit runs. */
     internal fun scenePreview(): ScenePreview? {
+        val editing = editingText
         val t = gestures.transform
-        if (t.isIdentity) return null
-        return ScenePreview(transformed = selection, transform = t)
+        if (editing == null && t.isIdentity) return null
+        return ScenePreview(
+            transformed = if (t.isIdentity) emptySet() else selection,
+            transform = t,
+            hidden = if (editing == null) emptySet() else setOf(editing.id),
+        )
     }
 
     internal fun overlayChanged() {
@@ -416,8 +502,16 @@ class CanvasController(initial: Note) {
         const val DEFAULT_WIDTH = 2.5f
         const val FIT_MARGIN_DP = 24f
 
+        /** Canvas units. */
+        const val DEFAULT_TEXT_SIZE = 18f
+
+        /** Width of a text box made by a tap, canvas units. */
+        const val DEFAULT_TEXT_WIDTH = 320f
+
         /** How far [duplicateSelection] offsets the copies, right and down, canvas units. */
         const val DUPLICATE_OFFSET = 16f
+
+        private const val MIN_TEXT_HEIGHT = 1f
 
         /** A new empty note. */
         fun newNote(page: PageSetup = PageSetup.Infinite): Note {

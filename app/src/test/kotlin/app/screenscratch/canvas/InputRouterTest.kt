@@ -230,8 +230,8 @@ class InputRouterTest {
     }
 
     @Test
-    fun selectShapeAndLineAreEditGestures() {
-        for (tool in listOf(Tool.SELECT, Tool.SHAPE, Tool.LINE)) {
+    fun selectShapeLineAndTextAreEditGestures() {
+        for (tool in listOf(Tool.SELECT, Tool.SHAPE, Tool.LINE, Tool.TEXT)) {
             t.tool = tool
             t.calls.clear()
             stroke(STYLUS)

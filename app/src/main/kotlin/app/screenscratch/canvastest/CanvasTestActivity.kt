@@ -270,6 +270,7 @@ class CanvasTestActivity : ComponentActivity() {
             Tool.SELECT -> "Select"
             Tool.SHAPE -> "Shape"
             Tool.LINE -> "Line"
+            Tool.TEXT -> "Text"
         }
 
     companion object {

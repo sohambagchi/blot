@@ -15,13 +15,16 @@ enum class Tool {
     SHAPE,
 
     /** Draws a straight line by dragging, with [CanvasController.lineArrows]. */
-    LINE;
+    LINE,
+
+    /** A tap creates a text box, or edits the one under it. */
+    TEXT;
 
     /** The tool the pen's cycle button moves to: pen → pan → select → pen. Any other tool goes to the pen. */
     fun next(): Tool = when (this) {
         PEN -> PAN
         PAN -> SELECT
-        SELECT, ERASER, SHAPE, LINE -> PEN
+        SELECT, ERASER, SHAPE, LINE, TEXT -> PEN
     }
 }
 

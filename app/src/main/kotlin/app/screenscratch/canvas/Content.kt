@@ -17,6 +17,13 @@ import app.screenscratch.core.model.TextBox
 fun interface TextBoxRenderer {
     /** Draws [box] in [color], which is [TextBox.color] after any dark-mode transform. */
     fun draw(canvas: Canvas, box: TextBox, color: Int)
+
+    /**
+     * The height in canvas units that [box]'s content takes when laid out at its frame's width;
+     * the editor sets the frame's height to it when a box is edited. The default keeps the
+     * frame's height, so a renderer that doesn't measure never resizes boxes.
+     */
+    fun measureHeight(box: TextBox): Float = box.frame.height
 }
 
 /** Shows a text box's markdown source as plain wrapped text, until the markdown renderer replaces it. */
@@ -28,14 +35,20 @@ class PlainTextBoxRenderer : TextBoxRenderer {
 
     private val layouts = LruCache<Key, StaticLayout>(64)
 
+    override fun measureHeight(box: TextBox): Float = layout(box, box.color.value).height.toFloat()
+
     override fun draw(canvas: Canvas, box: TextBox, color: Int) {
-        val key = Key(box, color)
-        val layout = synchronized(layouts) { layouts[key] } ?: build(box, color).also { synchronized(layouts) { layouts.put(key, it) } }
+        val layout = layout(box, color)
         canvas.save()
         canvas.clipRect(box.frame.left, box.frame.top, box.frame.right, box.frame.bottom)
         canvas.translate(box.frame.x, box.frame.y)
         layout.draw(canvas)
         canvas.restore()
+    }
+
+    private fun layout(box: TextBox, color: Int): StaticLayout {
+        val key = Key(box, color)
+        return synchronized(layouts) { layouts[key] } ?: build(box, color).also { synchronized(layouts) { layouts.put(key, it) } }
     }
 
     private fun build(box: TextBox, color: Int): StaticLayout {
