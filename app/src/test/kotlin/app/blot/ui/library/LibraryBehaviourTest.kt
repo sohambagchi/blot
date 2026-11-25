@@ -83,6 +83,17 @@ class LibraryBehaviourTest {
     }
 
     @Test
+    fun aboutOffersCheckForUpdatesOnlyWithAnUpdater() {
+        val fake = FakeLibrary()
+        fake.setSettingsOpen(true)
+        show(fake)
+        compose.onNodeWithText("Check for updates").assertDoesNotExist()
+        fake.setCanCheckForUpdates(true)
+        compose.onNodeWithText("Check for updates").performClick()
+        assertEquals(1, fake.updateChecks)
+    }
+
+    @Test
     fun newNoteMenuOffersFourPageKinds() {
         val fake = FakeLibrary()
         show(fake)

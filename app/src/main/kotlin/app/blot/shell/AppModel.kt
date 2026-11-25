@@ -99,12 +99,14 @@ class AppModel(
     private val io: CoroutineDispatcher = NotesIo.dispatcher,
     private val ioScope: CoroutineScope = NotesIo.scope,
     version: String = "",
+    canCheckForUpdates: Boolean = false,
 ) : LibraryActions {
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** Opens the system folder picker, starting at the given tree when re-granting. */
     var pickFolder: (Uri?) -> Unit = {}
     var openDebug: (DebugScreen) -> Unit = {}
+    var openUpdates: () -> Unit = {}
 
     /** The window size in dp, for screen-sized pages. */
     var screenSizeDp: () -> Pair<Float, Float> = { 1280f to 800f }
@@ -121,6 +123,7 @@ class AppModel(
                 theme = settings.theme,
                 swapSideButtons = settings.swapSideButtons,
                 version = version,
+                canCheckForUpdates = canCheckForUpdates,
                 frontBufferWholeNote = settings.frontBuffer == FrontBufferContent.SCENE,
             ),
         ),
@@ -608,6 +611,8 @@ class AppModel(
     }
 
     override fun openDebugScreen(screen: DebugScreen) = openDebug(screen)
+
+    override fun checkForUpdates() = openUpdates()
 
     override fun chooseFolder() = pickFolder(null)
 
