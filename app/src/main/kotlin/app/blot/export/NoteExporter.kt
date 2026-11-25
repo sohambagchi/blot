@@ -6,8 +6,8 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import app.blot.canvas.CanvasPalette
 import app.blot.canvas.OutlineCache
+import app.blot.canvas.PatternPainter
 import app.blot.canvas.SceneRenderer
-import app.blot.core.export.DotGrid
 import app.blot.core.export.ExportAssets
 import app.blot.core.export.ExportBackground
 import app.blot.core.export.ExportFormat
@@ -55,7 +55,7 @@ class NoteExporter(private val outlines: OutlineCache = OutlineCache()) {
             canvas.scale(size.scale, size.scale)
             canvas.translate(-plan.bounds.x, -plan.bounds.y)
             if (session.paper && plan.sheets.size > 1) session.fill(canvas, plan.bounds, session.palette.desk)
-            for (sheet in plan.sheets) session.drawSheet(canvas, plan, sheet)
+            for (sheet in plan.sheets) session.drawSheet(canvas, plan, sheet, size.scale, -plan.bounds.x * size.scale, -plan.bounds.y * size.scale)
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         } finally {
             session.close()
@@ -111,7 +111,7 @@ class NoteExporter(private val outlines: OutlineCache = OutlineCache()) {
     }
 
     /** One export's renderer, decoded images and laid-out text. */
-    private inner class Session(assets: ExportAssets, private val options: ExportOptions) {
+    private inner class Session(assets: ExportAssets, options: ExportOptions) {
         val dark = options.dark
         val paper = options.background == ExportBackground.PAPER
         private val canvasPalette = CanvasPalette.of(dark)
@@ -120,6 +120,7 @@ class NoteExporter(private val outlines: OutlineCache = OutlineCache()) {
         val text = MarkdownTextBoxes(dark, palette.paper, bitmaps)
         private val scene = SceneRenderer(outlines, text, bitmaps)
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        private val pattern = PatternPainter()
 
         fun color(argb: Int): Int = scene.color(argb, dark)
 
@@ -128,15 +129,23 @@ class NoteExporter(private val outlines: OutlineCache = OutlineCache()) {
             canvas.drawRect(r.left, r.top, r.right, r.bottom, paint)
         }
 
-        fun drawSheet(canvas: Canvas, plan: ExportPlan, sheet: Sheet) {
+        /**
+         * Draws [sheet] at [pxPerUnit] output pixels per canvas unit, with the canvas origin at pixel
+         * ([originX], [originY]); infinity and NaN for vector output.
+         */
+        fun drawSheet(
+            canvas: Canvas,
+            plan: ExportPlan,
+            sheet: Sheet,
+            pxPerUnit: Float = Float.POSITIVE_INFINITY,
+            originX: Float = Float.NaN,
+            originY: Float = Float.NaN,
+        ) {
             val r = sheet.rect
             canvas.save()
             canvas.clipRect(r.left, r.top, r.right, r.bottom)
             if (paper) fill(canvas, r, palette.paper)
-            if (options.dotGrid) {
-                paint.color = palette.dot
-                for (p in DotGrid.dots(r, sheet.dotOrigin)) canvas.drawCircle(p.x, p.y, DotGrid.RADIUS, paint)
-            }
+            for (m in plan.patternOn(sheet, pxPerUnit)) pattern.draw(canvas, m, pxPerUnit, palette.dot, palette.line, originX, originY)
             for (e in plan.elementsOn(sheet)) scene.drawElement(canvas, e, dark, canvasPalette)
             canvas.restore()
         }
@@ -145,14 +154,10 @@ class NoteExporter(private val outlines: OutlineCache = OutlineCache()) {
     }
 
     companion object {
-        // The design's dot colours (BlotColors.Light.dot and .Dark.dot).
-        private const val LIGHT_DOT = 0xFFD6D3CB.toInt()
-        private const val DARK_DOT = 0xFF2B2B30.toInt()
-
         /** The canvas's colours for a light or [dark] export. */
         fun palette(dark: Boolean): ExportPalette {
             val c = CanvasPalette.of(dark)
-            return ExportPalette(c.paper, c.desk, c.placeholder, c.placeholderEdge, if (dark) DARK_DOT else LIGHT_DOT)
+            return ExportPalette(c.paper, c.desk, c.placeholder, c.placeholderEdge, c.patternDot, c.patternLine)
         }
     }
 }

@@ -8,7 +8,9 @@ import app.blot.core.model.AssetRef
 import app.blot.core.model.Element
 import app.blot.core.model.Image
 import app.blot.core.model.Line
+import app.blot.core.model.Background
 import app.blot.core.model.Note
+import app.blot.core.model.Pattern
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Point
 import app.blot.core.model.Rect
@@ -206,8 +208,8 @@ class SvgNoteWriterTest {
     fun pagesStackWithOneClipEach() {
         val page = PageSetup.Pages.a4(count = 3)
         val onSecond = wave("second", page.pageRect(1).top + 100f)
-        val n = note(page, elements + onSecond)
-        val doc = parse(svg(n, ExportOptions(format = ExportFormat.SVG, dotGrid = true)))
+        val n = note(page, elements + onSecond).copy(background = Background(Pattern.DOTS))
+        val doc = parse(svg(n, ExportOptions(format = ExportFormat.SVG, backgroundPattern = true)))
         val vb = doc.documentElement.floats("viewBox")
         assertEquals(page.width, vb[2], 0.01f)
         assertEquals(page.height * 3 + PageSetup.Pages.PAGE_GAP * 2, vb[3], 0.01f)

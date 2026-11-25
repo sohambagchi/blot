@@ -4,6 +4,8 @@ import app.blot.core.model.Element
 import app.blot.core.model.Image
 import app.blot.core.model.Line
 import app.blot.core.model.Note
+import app.blot.core.model.Pattern
+import app.blot.core.model.PatternMarks
 import app.blot.core.model.Point
 import app.blot.core.model.Rect
 import app.blot.core.model.Shape
@@ -18,7 +20,8 @@ import app.blot.core.model.TextBox
  * lines `<path>`s of their outlines; images are `data:` URIs, and text
  * boxes are one `<text>` per laid-out line with a `<tspan>` per styled run, their maths glyph
  * outlines as `<path>`s; no `foreignObject`.
- * Pages are stacked as in the note, each clipped to itself.
+ * Pages are stacked as in the note, each clipped to itself. A background pattern's dots are a
+ * `<pattern>` fill and its grid or ruled lines one `<path>` per page.
  *
  * @param outline a stroke's outline polygon, x0, y0, x1, y1, … in canvas units.
  * @param color the colour a stored colour is drawn in (the dark-mode transform for a dark export).
@@ -53,7 +56,7 @@ class SvgNoteWriter(
         for (sheet in plan.sheets) {
             val r = sheet.rect
             if (paper) rect(x, r, "fill" to SvgXml.rgb(palette.paper), "fill-opacity" to SvgXml.opacity(palette.paper))
-            if (options.dotGrid) dots(x, sheet)
+            for (m in plan.patternOn(sheet)) pattern(x, m)
             val clip = id("page")
             x.open("clipPath", "id" to clip)
             rect(x, r)
@@ -70,18 +73,41 @@ class SvgNoteWriter(
     private fun rect(x: SvgXml, r: Rect, vararg attrs: Pair<String, Any?>) =
         x.leaf("rect", "x" to r.x, "y" to r.y, "width" to r.width, "height" to r.height, *attrs)
 
-    private fun dots(x: SvgXml, sheet: Sheet) {
-        val id = id("dots")
-        val s = DotGrid.SPACING
-        x.open("defs")
-        x.open(
-            "pattern", "id" to id, "patternUnits" to "userSpaceOnUse",
-            "x" to sheet.dotOrigin.x, "y" to sheet.dotOrigin.y, "width" to s, "height" to s,
+    // Dots fill the area through a <pattern> tile; grid and ruled lines are one path per area.
+    private fun pattern(x: SvgXml, m: PatternMarks) {
+        val a = m.area
+        if (m.pattern == Pattern.DOTS) {
+            if (m.xs.isEmpty() || m.ys.isEmpty()) return
+            val sx = if (m.xs.size > 1) m.xs[1] - m.xs[0] else a.width + 1f
+            val sy = if (m.ys.size > 1) m.ys[1] - m.ys[0] else a.height + 1f
+            val id = id("dots")
+            x.open("defs")
+            x.open(
+                "pattern", "id" to id, "patternUnits" to "userSpaceOnUse",
+                "x" to m.xs[0] - sx / 2, "y" to m.ys[0] - sy / 2, "width" to sx, "height" to sy,
+            )
+            x.leaf(
+                "circle", "cx" to sx / 2, "cy" to sy / 2, "r" to PatternMarks.DOT_RADIUS,
+                "fill" to SvgXml.rgb(palette.dot), "fill-opacity" to SvgXml.opacity(palette.dot),
+            )
+            x.close()
+            x.close()
+            rect(x, a, "fill" to "url(#$id)")
+            return
+        }
+        if (m.xs.isEmpty() && m.ys.isEmpty()) return
+        val d = StringBuilder()
+        for (v in m.xs) {
+            d.append('M'); SvgXml.num(v, d); d.append(' '); SvgXml.num(a.top, d); d.append('V'); SvgXml.num(a.bottom, d)
+        }
+        for (v in m.ys) {
+            d.append('M'); SvgXml.num(a.left, d); d.append(' '); SvgXml.num(v, d); d.append('H'); SvgXml.num(a.right, d)
+        }
+        x.leaf(
+            "path", "d" to d.toString(), "fill" to "none",
+            "stroke" to SvgXml.rgb(palette.line), "stroke-opacity" to SvgXml.opacity(palette.line),
+            "stroke-width" to PatternMarks.LINE_WIDTH,
         )
-        x.leaf("circle", "cx" to s / 2, "cy" to s / 2, "r" to DotGrid.RADIUS, "fill" to SvgXml.rgb(palette.dot), "fill-opacity" to SvgXml.opacity(palette.dot))
-        x.close()
-        x.close()
-        rect(x, sheet.rect, "fill" to "url(#$id)")
     }
 
     private fun element(x: SvgXml, e: Element) {

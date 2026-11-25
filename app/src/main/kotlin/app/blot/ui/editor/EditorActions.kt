@@ -1,6 +1,7 @@
 package app.blot.ui.editor
 
 import app.blot.core.model.Argb
+import app.blot.core.model.Background
 import app.blot.ui.library.PageKind
 
 /**
@@ -58,6 +59,12 @@ interface EditorActions {
     fun setPageLandscape(landscape: Boolean) {}
     fun addPage() {}
     fun removePage() {}
+
+    /** The Background button was tapped (true), or the panel dismissed (false). */
+    fun setBackgroundPanelOpen(open: Boolean) {}
+
+    /** The note's background pattern changed; null for none. Applied live, as the panel's controls move. */
+    fun setBackground(background: Background?) {}
 
     /** The notice in [EditorUiState.message] was shown long enough, or tapped. */
     fun dismissMessage() {}

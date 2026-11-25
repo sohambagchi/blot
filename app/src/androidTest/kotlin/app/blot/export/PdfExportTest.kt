@@ -16,7 +16,9 @@ import app.blot.core.model.Argb
 import app.blot.core.model.Arrowhead
 import app.blot.core.model.Element
 import app.blot.core.model.Line
+import app.blot.core.model.Background
 import app.blot.core.model.Note
+import app.blot.core.model.Pattern
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Point
 import app.blot.core.model.Rect
@@ -89,8 +91,8 @@ class PdfExportTest {
 
     @Test
     fun infiniteNoteIsOnePageOfItsContent() {
-        val note = Note("i", "Infinite", t0, t0, PageSetup.Infinite, content(0f) + wave("far", 2000f, 1500f))
-        val file = export(note, ExportOptions(dark = true, dotGrid = true), "infinite.pdf")
+        val note = Note("i", "Infinite", t0, t0, PageSetup.Infinite, content(0f) + wave("far", 2000f, 1500f), Background(Pattern.GRID))
+        val file = export(note, ExportOptions(dark = true, backgroundPattern = true), "infinite.pdf")
         val expected = ExportSizes.pdfPage(ExportPlan.of(note, ExportOptions()).bounds)
         open(file) { pdf ->
             assertEquals(1, pdf.pageCount)

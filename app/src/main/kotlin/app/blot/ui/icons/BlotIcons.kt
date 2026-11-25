@@ -51,6 +51,9 @@ object BlotIcons {
     val ChevronRight = Glyph("m9 18 6-6-6-6")
     val ChevronLeft = Glyph("m15 18-6-6 6-6")
     val Plus = Glyph("M12 5v14 M5 12h14")
+
+    /** Not in the design: the note background button, a small grid in the Layers button's place. */
+    val Background = Glyph(rect(4f, 4f, 16f, 16f, 2.5f), "M4 9.33h16 M4 14.67h16 M9.33 4v16 M14.67 4v16")
     /** Drag handle of the horizontal toolbar: two columns of three dots. */
     val GripVertical = Glyph(listOf("M3 6h0 M9 6h0 M3 12h0 M9 12h0 M3 18h0 M9 18h0"), viewportWidth = 12f, viewportHeight = 24f)
     /** Drag handle of the vertical rail: two rows of three dots. */

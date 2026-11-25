@@ -61,10 +61,10 @@ class EditorBehaviourTest {
         compose.onNodeWithContentDescription("Text box").assertExists()
         // The corner pills stay compact until their own arrow is tapped.
         compose.onNodeWithContentDescription("Redo").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Show redo and export").performClick()
+        compose.onNodeWithContentDescription("Show redo, background and export").performClick()
         assertFalse(e.state.cornerCollapsed)
         compose.onNodeWithContentDescription("Redo").assertExists()
-        compose.onNodeWithContentDescription("Show redo and export").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Show redo, background and export").assertDoesNotExist()
     }
 
     @Test

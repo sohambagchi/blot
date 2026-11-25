@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import app.blot.core.model.Argb
+import app.blot.core.model.Background
+import app.blot.core.model.Pattern
 import app.blot.ui.library.PageKind
 import app.blot.ui.theme.QuickInk
 
@@ -76,7 +78,8 @@ data class ExportOptions(
     val scale: Int = 2,
     val background: ExportBackground = ExportBackground.Paper,
     val lightColours: Boolean = true,
-    val dotGrid: Boolean = false,
+    /** Includes the note's background pattern; offered only when the note has one. */
+    val backgroundPattern: Boolean = false,
 )
 
 /**
@@ -88,6 +91,8 @@ data class ExportInfo(
     val preview: ImageBitmap? = null,
     val areaSizes: Map<ExportArea, IntSize> = emptyMap(),
     val destination: String = "Blot/Exports",
+    /** The note's background pattern, or null when it has none and there is nothing to include. */
+    val pattern: Pattern? = null,
 )
 
 /**
@@ -111,6 +116,10 @@ data class EditorUiState(
     /** Page count; ignored for [PageKind.Infinite]. */
     val pageCount: Int = 1,
     val pageLandscape: Boolean = false,
+    /** The note's background pattern and spacing; null for a plain background. */
+    val background: Background? = null,
+    /** The background panel under the corner pill's Background button. */
+    val backgroundPanelOpen: Boolean = false,
 
     val tool: Tool = Tool.Pen,
     val penMode: PenMode = PenMode.Pen,

@@ -1,12 +1,12 @@
 package app.blot.core.export
 
+import app.blot.core.model.Background
 import app.blot.core.model.Element
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
-import app.blot.core.model.Point
+import app.blot.core.model.PatternMarks
 import app.blot.core.model.Rect
 import kotlin.math.ceil
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -15,19 +15,38 @@ import kotlin.math.sqrt
 /**
  * One paper area of an export, in canvas units: a note page, or the whole exported rectangle
  * of an infinite note, an area or a selection. Elements are clipped to it.
- *
- * @property dotOrigin where the dot grid's cells start: the page's corner, or the canvas origin.
  */
-data class Sheet(val rect: Rect, val dotOrigin: Point)
+data class Sheet(val rect: Rect)
 
 /**
  * What an export draws: [bounds] (canvas units) is the whole picture; [sheets] are the paper
- * areas inside it, each drawn with its own background, dots and clip. Space in [bounds] outside
- * every sheet is the gap between stacked pages. [elements] keeps the note's stacking order.
+ * areas inside it, each drawn with its own background, pattern and clip. Space in [bounds]
+ * outside every sheet is the gap between stacked pages. [elements] keeps the note's stacking
+ * order. [background] is the pattern to draw, null for none, laid out on [page]'s pages.
  */
-class ExportPlan(val bounds: Rect, val sheets: List<Sheet>, val elements: List<Element>) {
+class ExportPlan(
+    val bounds: Rect,
+    val sheets: List<Sheet>,
+    val elements: List<Element>,
+    val background: Background? = null,
+    val page: PageSetup = PageSetup.Infinite,
+) {
     /** [elements] that reach into [sheet]. */
     fun elementsOn(sheet: Sheet): List<Element> = elements.filter { it.bounds.intersects(sheet.rect) }
+
+    /**
+     * The [background] marks inside [sheet]: one per note page that reaches into it, or one from
+     * the canvas origin for an infinite note. Thinned as on screen for [pxPerUnit] output pixels
+     * per canvas unit; vector output passes infinity and keeps every mark.
+     */
+    fun patternOn(sheet: Sheet, pxPerUnit: Float = Float.POSITIVE_INFINITY): List<PatternMarks> {
+        val bg = background ?: return emptyList()
+        val stride = PatternMarks.stride(bg.spacing, pxPerUnit)
+        return when (val p = page) {
+            PageSetup.Infinite -> listOfNotNull(PatternMarks.of(bg, null, sheet.rect, stride))
+            is PageSetup.Pages -> (0 until p.count).mapNotNull { PatternMarks.of(bg, p.pageRect(it), sheet.rect, stride) }
+        }
+    }
 
     companion object {
         /** Side of the box exported for an empty note or selection, before the margin. */
@@ -36,7 +55,7 @@ class ExportPlan(val bounds: Rect, val sheets: List<Sheet>, val elements: List<E
         fun of(note: Note, options: ExportOptions): ExportPlan {
             val page = note.page
             val range = options.range
-            return when {
+            val plan = when {
                 range is ExportRange.Area -> single(range.rect, note.elements.filter { it.bounds.intersects(range.rect) })
                 range is ExportRange.Selection -> {
                     val chosen = note.elements.filter { it.id in range.ids }
@@ -48,15 +67,17 @@ class ExportPlan(val bounds: Rect, val sheets: List<Sheet>, val elements: List<E
                     } else {
                         0 to page.count - 1
                     }
-                    val sheets = (first..last).map { page.pageRect(it).let { r -> Sheet(r, Point(r.x, r.y)) } }
+                    val sheets = (first..last).map { Sheet(page.pageRect(it)) }
                     val bounds = sheets.first().rect.union(sheets.last().rect)
                     ExportPlan(bounds, sheets, note.elements.filter { it.bounds.intersects(bounds) })
                 }
                 else -> single(framed(note.elements, options.margin), note.elements)
             }
+            val background = note.background.takeIf { options.backgroundPattern } ?: return plan
+            return ExportPlan(plan.bounds, plan.sheets, plan.elements, background, page)
         }
 
-        private fun single(rect: Rect, elements: List<Element>) = ExportPlan(rect, listOf(Sheet(rect, Point(0f, 0f))), elements)
+        private fun single(rect: Rect, elements: List<Element>) = ExportPlan(rect, listOf(Sheet(rect)), elements)
 
         private fun framed(elements: List<Element>, margin: Float): Rect =
             (contentBounds(elements) ?: Rect(0f, 0f, EMPTY_SIZE, EMPTY_SIZE)).inflate(margin)
@@ -103,24 +124,5 @@ object ExportSizes {
         val longest = max(rect.width, rect.height) * POINTS_PER_UNIT
         val s = if (longest > MAX_PDF_POINTS) MAX_PDF_POINTS / max(rect.width, rect.height) else POINTS_PER_UNIT
         return PixelSize(max(1, (rect.width * s).roundToInt()), max(1, (rect.height * s).roundToInt()), s)
-    }
-}
-
-/** The canvas dots that exports can draw: [RADIUS] dots centred in [SPACING] cells, as in the design. */
-object DotGrid {
-    /** Canvas units. */
-    const val SPACING = 28f
-    const val RADIUS = 1.2f
-
-    /** Centres of the dots in [area], for cells starting at [origin]. */
-    fun dots(area: Rect, origin: Point): Sequence<Point> {
-        val half = SPACING / 2
-        val i0 = ceil((area.left - origin.x - half) / SPACING).toInt()
-        val i1 = floor((area.right - origin.x - half) / SPACING).toInt()
-        val j0 = ceil((area.top - origin.y - half) / SPACING).toInt()
-        val j1 = floor((area.bottom - origin.y - half) / SPACING).toInt()
-        return (j0..j1).asSequence().flatMap { j ->
-            (i0..i1).asSequence().map { i -> Point(origin.x + half + i * SPACING, origin.y + half + j * SPACING) }
-        }
     }
 }

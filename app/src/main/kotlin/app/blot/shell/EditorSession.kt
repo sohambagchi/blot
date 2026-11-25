@@ -9,6 +9,7 @@ import app.blot.canvas.CanvasController
 import app.blot.canvas.FrontBufferContent
 import app.blot.canvas.OutlineCache
 import app.blot.canvas.SceneRenderer
+import app.blot.core.model.Background
 import app.blot.core.model.Note
 import app.blot.core.model.format.NoteJson
 import app.blot.core.store.NoteId
@@ -59,6 +60,7 @@ class EditorSession(
     onPenOnlyChanged: (Boolean) -> Unit,
     private val onSaveFailed: (Exception) -> Unit,
     screenPageSize: () -> Pair<Float, Float>,
+    onBackgroundChanged: (Background?) -> Unit = {},
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val readOnly = setup.readOnly
@@ -90,6 +92,7 @@ class EditorSession(
         onPenOnlyChanged = onPenOnlyChanged,
         onExportOpened = ::renderExportPreview,
         screenPageSize = screenPageSize,
+        onBackgroundChanged = onBackgroundChanged,
     )
 
     val autosave = Autosave(::save)
@@ -167,7 +170,7 @@ class EditorSession(
         io.launch {
             thumbText.dark = darkNow
             val bmp = try {
-                ThumbnailRenderer.render(note, darkNow, thumbRenderer, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+                ThumbnailRenderer.render(note, darkNow, thumbRenderer, PREVIEW_WIDTH, PREVIEW_HEIGHT, pattern = false)
             } catch (e: Exception) {
                 null
             }
