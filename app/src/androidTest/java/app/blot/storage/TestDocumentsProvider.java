@@ -24,7 +24,10 @@ import java.io.IOException;
  * to test the store's copy fallback.
  */
 public class TestDocumentsProvider extends DocumentsProvider {
-    static final String AUTHORITY = "app.blot.test.documents";
+    /** Named after the test package, so the debug and shrunk test APKs can be installed together. */
+    static String authority(android.content.Context context) {
+        return context.getPackageName() + ".documents";
+    }
     static final String ROOT_DOC = "root";
 
     /** Set through {@link TestGrantProvider}'s "moves" method; this runs in the same process. */

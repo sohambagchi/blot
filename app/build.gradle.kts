@@ -1,4 +1,3 @@
-import java.net.URI
 import java.util.Properties
 
 fun git(vararg args: String) = providers.exec { commandLine("git", *args) }.standardOutput.asText.get().trim()
@@ -13,37 +12,6 @@ val signingProps = Properties().apply {
     rootProject.file("signing.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 val signingStore = file(signingProps.getProperty("signing.store", "${System.getProperty("user.home")}/.android/blot.jks"))
-
-// Cleartext is allowed only to depot's http:// hosts from DEPOT_URLS (its Tailscale address,
-// which Tailscale encrypts); a build without depot allows none. Generated, so the address
-// stays out of the repo.
-val depotCleartextHosts: Provider<List<String>> = providers.environmentVariable("DEPOT_URLS")
-    .map { urls -> urls.split(',').map { it.trim() }.filter { it.startsWith("http://") }.map { URI(it).host } }
-    .orElse(emptyList())
-
-abstract class NetworkSecurityConfig : DefaultTask() {
-    @get:Input abstract val cleartextHosts: ListProperty<String>
-    @get:OutputDirectory abstract val outputDir: DirectoryProperty
-
-    @TaskAction
-    fun write() {
-        val domains = cleartextHosts.get().joinToString("") { "\n        <domain includeSubdomains=\"false\">$it</domain>" }
-        val permitted = if (domains.isEmpty()) "" else "\n    <domain-config cleartextTrafficPermitted=\"true\">$domains\n    </domain-config>"
-        val file = outputDir.get().file("xml/network_security_config.xml").asFile
-        file.parentFile.mkdirs()
-        file.writeText("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<network-security-config>\n    <base-config cleartextTrafficPermitted=\"false\" />$permitted\n</network-security-config>\n")
-    }
-}
-
-val networkSecurityConfig = tasks.register<NetworkSecurityConfig>("networkSecurityConfig") {
-    cleartextHosts.set(depotCleartextHosts)
-}
-
-androidComponents {
-    onVariants { variant ->
-        variant.sources.res?.addGeneratedSourceDirectory(networkSecurityConfig, NetworkSecurityConfig::outputDir)
-    }
-}
 
 android {
     namespace = "app.blot"
@@ -64,7 +32,6 @@ android {
         versionName = git("log", "-1", "--grep=^\\[[0-9]", "--format=%s").substringAfter("[").substringBefore("]").ifEmpty { "0.0.0" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appLabel"] = "Blot"
-        testInstrumentationRunnerArguments["cleartextHosts"] = depotCleartextHosts.get().joinToString(",")
     }
 
     signingConfigs {

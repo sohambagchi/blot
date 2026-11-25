@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1795587861,
-        "narHash": "sha256-JaM6/vwIUogTVIggbbJX6AGG3w9Olng4SqSJHrK/We8=",
+        "lastModified": 1795590475,
+        "narHash": "sha256-y1HRUFck1D2zK9rd9t2bzkiLaWxtsqCRyY0AMYz+kl8=",
         "ref": "main",
-        "rev": "04653cf80d703ddc625fa24712b7d2bf0ce72afd",
-        "revCount": 11,
+        "rev": "fec68e0949268035216d977155c59f52b430d771",
+        "revCount": 16,
         "type": "git",
         "url": "file:///home/soham/dev/android-emu"
       },

@@ -4,7 +4,7 @@
     <application>
         <provider
             android:name="app.blot.storage.TestDocumentsProvider"
-            android:authorities="app.blot.test.documents"
+            android:authorities="${applicationId}.documents"
             android:exported="true"
             android:grantUriPermissions="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">
@@ -14,7 +14,7 @@
         </provider>
         <provider
             android:name="app.blot.storage.TestGrantProvider"
-            android:authorities="app.blot.test.grant"
+            android:authorities="${applicationId}.grant"
             android:exported="true" />
     </application>
 </manifest>

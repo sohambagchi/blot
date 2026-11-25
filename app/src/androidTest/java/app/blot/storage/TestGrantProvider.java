@@ -39,7 +39,7 @@ public class TestGrantProvider extends ContentProvider {
                 return null;
             case "grant":
                 Uri tree = DocumentsContract.buildTreeDocumentUri(
-                    TestDocumentsProvider.AUTHORITY, TestDocumentsProvider.ROOT_DOC);
+                    TestDocumentsProvider.authority(getContext()), TestDocumentsProvider.ROOT_DOC);
                 getContext().grantUriPermission(getCallingPackage(), tree,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);

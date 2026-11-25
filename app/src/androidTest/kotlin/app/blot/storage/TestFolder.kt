@@ -2,11 +2,12 @@ package app.blot.storage
 
 import android.content.Context
 import android.net.Uri
+import androidx.test.platform.app.InstrumentationRegistry
 import app.blot.core.store.NoteMeta
 
 /** Gets a fresh, empty tree from [TestDocumentsProvider], granted as the folder picker would. */
 object TestFolder {
-    private val grant = Uri.parse("content://app.blot.test.grant")
+    private val grant get() = Uri.parse("content://${InstrumentationRegistry.getInstrumentation().context.packageName}.grant")
 
     fun fresh(context: Context): Uri {
         val resolver = context.contentResolver

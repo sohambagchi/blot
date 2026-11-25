@@ -9,9 +9,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+/**
+ * depot's client sets the network security config: cleartext is refused except to hosts named
+ * as `http://` in DEPOT_URLS or in DEPOT_CLEARTEXT_HOSTS. Pass those as `-e cleartextHosts a,b`.
+ */
 class CleartextPolicyTest {
     @Test
-    fun cleartextIsAllowedOnlyToDepotsHosts() {
+    fun cleartextIsRefusedExceptToNamedHosts() {
         val policy = NetworkSecurityPolicy.getInstance()
         assertFalse(policy.isCleartextTrafficPermitted)
         assertFalse(policy.isCleartextTrafficPermitted("example.com"))
