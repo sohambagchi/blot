@@ -95,10 +95,12 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
         pick.tone = ColourMath.toneOf(hsv)
         pick.rgb = rgb
     }
+    // Wheel and strip picks keep their own hue, saturation and tone; other sources re-derive them.
     val choose = { newRgb: Int ->
         pick.rgb = newRgb
         actions.setColor(Argb(newRgb))
     }
+    val set = { newRgb: Int -> actions.setColor(Argb(newRgb)) }
     Column(
         modifier
             .width(360.dp)
@@ -118,7 +120,7 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
                     pick.tone = t
                     choose(ColourMath.withTone(pick.h, pick.s, t))
                 }
-                HexField(rgb) { parsed -> choose(parsed) }
+                HexField(rgb) { parsed -> set(parsed) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     for (w in EditorUiState.WidthPresets) WidthButton(w, state.strokeWidth == w) { actions.setStrokeWidth(w) }
                 }
@@ -136,7 +138,7 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
                                 .clip(shape)
                                 .background(Color(hex))
                                 .border(if (chosen) 2.dp else 1.dp, if (chosen) c.text else c.border, shape)
-                                .clickable(role = Role.Button) { choose(hex.toInt()) }
+                                .clickable(role = Role.Button) { set(hex.toInt()) }
                                 .semantics {
                                     contentDescription = ColourMath.toHex(hex.toInt())
                                     selected = chosen

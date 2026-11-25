@@ -17,6 +17,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.screenscratch.core.FORMAT_VERSION
 import app.screenscratch.pentest.PenTestActivity
+import app.screenscratch.ui.preview.UiPreviewActivity
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,6 +26,11 @@ class MainActivity : ComponentActivity() {
             val text = TextStyle(color = if (isSystemInDarkTheme()) Color(0xFFE8E8E8) else Color(0xFF111111))
             Column(Modifier.safeDrawingPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 BasicText("Screen Scratch (format v$FORMAT_VERSION)", style = text)
+                BasicText(
+                    "UI preview",
+                    Modifier.clickable { startActivity(Intent(this@MainActivity, UiPreviewActivity::class.java)) },
+                    style = text,
+                )
                 BasicText(
                     "Pen test",
                     Modifier.clickable { startActivity(Intent(this@MainActivity, PenTestActivity::class.java)) },

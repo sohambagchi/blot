@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import app.screenscratch.ui.components.IconButton
+import app.screenscratch.ui.components.ModalCard
 import app.screenscratch.ui.components.OutlineButton
 import app.screenscratch.ui.components.PrimaryButton
 import app.screenscratch.ui.components.Rule
@@ -57,35 +58,6 @@ fun exportSizeLabel(options: ExportOptions, sizes: Map<ExportArea, androidx.comp
         ExportFormat.Png -> "${size.width * options.scale} × ${size.height * options.scale} px"
         ExportFormat.Pdf -> "1 page, sized to fit"
         ExportFormat.Svg -> "Vector, ${size.width} × ${size.height}"
-    }
-}
-
-/** A centred modal card over a scrim; tapping the scrim calls [onDismiss]. */
-@Composable
-internal fun ModalCard(
-    onDismiss: () -> Unit,
-    width: androidx.compose.ui.unit.Dp,
-    title: String,
-    content: @Composable (maxWidth: androidx.compose.ui.unit.Dp) -> Unit,
-) {
-    val c = colors
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            .background(c.scrim)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
-        contentAlignment = Alignment.Center,
-    ) {
-        val w = min(width, maxWidth - 48.dp)
-        Box(
-            Modifier
-                .width(w)
-                .floatingSurface(RoundedCornerShape(Radii.dialog), Elevation.Dialog)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                .semantics { paneTitle = title },
-        ) {
-            content(w)
-        }
     }
 }
 
