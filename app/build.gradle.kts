@@ -31,6 +31,7 @@ android {
         versionCode = git("rev-list", "--count", "HEAD").toInt()
         versionName = git("log", "-1", "--grep=^\\[[0-9]", "--format=%s").substringAfter("[").substringBefore("]").ifEmpty { "0.0.0" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appLabel"] = "Blot"
     }
 
     signingConfigs {
@@ -45,6 +46,12 @@ android {
     }
 
     buildTypes {
+        // A separate app, so debug and release install side by side and each updates from its own
+        // line on depot, which keys releases by application id.
+        debug {
+            applicationIdSuffix = ".debug"
+            manifestPlaceholders["appLabel"] = "Blot debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

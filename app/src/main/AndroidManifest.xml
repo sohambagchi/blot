@@ -3,7 +3,7 @@
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="Blot"
+        android:label="${appLabel}"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <!-- Rotation and resizes are handled in-process so the canvas is not destroyed and rebuilt. -->
         <activity
