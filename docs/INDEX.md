@@ -23,6 +23,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2004-editor-ui](changelog/2026-11-24-2004-editor-ui.md) — editor chrome, library, settings and phone layout from the design
 - [2026-11-24-1934-note-store](changelog/2026-11-24-1934-note-store.md) — SAF note storage with an incremental library index
 - [2026-11-24-1931-markdown-renderer](changelog/2026-11-24-1931-markdown-renderer.md) — markdown text boxes for screen, PNG and PDF
 - [2026-11-24-1928-note-model-and-format](changelog/2026-11-24-1928-note-model-and-format.md) — core note model and note.json format

@@ -1,0 +1,70 @@
+package app.screenscratch.ui.editor
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import app.screenscratch.ui.components.IconButton
+import app.screenscratch.ui.components.floatingSurface
+import app.screenscratch.ui.icons.GlyphIcon
+import app.screenscratch.ui.icons.ScratchIcons
+import app.screenscratch.ui.theme.Elevation
+import app.screenscratch.ui.theme.Radii
+
+/**
+ * The phone viewer (`Phone.dc.html`): a top bar with back, title and export, and a bottom pill
+ * with pan, pen, lasso, text and image. Meant for viewing and light edits without a pen.
+ */
+@Composable
+fun PhoneEditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Box(modifier.fillMaxSize()) {
+        content()
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .height(54.dp)
+                .floatingSurface(RoundedCornerShape(Radii.pill), elevation = null)
+                .padding(horizontal = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            IconButton(ScratchIcons.Back, "Back to library", actions::back)
+            TitleBlock(state, Modifier.weight(1f))
+            IconButton(ScratchIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp)
+        }
+        val pan = state.tool == Tool.Pen && state.penMode == PenMode.Hand
+        val pen = state.tool == Tool.Pen && state.penMode == PenMode.Pen
+        Row(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 28.dp)
+                .height(58.dp)
+                .floatingSurface(RoundedCornerShape(Radii.bar), Elevation.PhonePill)
+                .padding(horizontal = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            ToolButton("Pan and zoom", pan, false, { actions.setPenMode(PenMode.Hand) }, menuDot = null) { GlyphIcon(ScratchIcons.Move, it) }
+            ToolButton("Pen", pen, false, { actions.setPenMode(PenMode.Pen) }, menuDot = null) { GlyphIcon(ScratchIcons.Pen, it) }
+            ToolButton("Lasso select", state.tool == Tool.Select, false, { actions.setSelectMode(SelectMode.Lasso) }, menuDot = null) {
+                GlyphIcon(ScratchIcons.LassoPhone, it)
+            }
+            ToolButton("Text box", state.tool == Tool.Text, false, { actions.selectTool(Tool.Text) }, menuDot = null) {
+                GlyphIcon(ScratchIcons.Text, it)
+            }
+            ToolButton("Insert image", state.tool == Tool.Image, false, { actions.selectTool(Tool.Image) }, menuDot = null) {
+                GlyphIcon(ScratchIcons.Image, it)
+            }
+        }
+        if (state.exportOpen) ExportDialog(state, actions)
+    }
+}
