@@ -9,7 +9,8 @@ import app.screenscratch.ui.theme.ThemeSetting
 
 /**
  * The app's persisted settings. "Pen only" defaults per device: on when an input device reports
- * `SOURCE_STYLUS` (the tablet), off otherwise (the phone), until the user changes it.
+ * `SOURCE_STYLUS` and the screen is tablet-sized (the tablet), off otherwise (the phone, whose
+ * viewer chrome has no toggle for it), until the user changes it.
  */
 class AppSettings(
     private val prefs: SharedPreferences,
@@ -39,7 +40,9 @@ class AppSettings(
         private const val KEY_PEN_ONLY = "pen_only"
         private const val KEY_FRONT = "front_buffer"
 
-        fun of(context: Context) = AppSettings(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)) { hasStylus(context) }
+        fun of(context: Context) = AppSettings(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)) {
+            hasStylus(context) && context.resources.configuration.smallestScreenWidthDp >= 600
+        }
 
         /** Whether any input device reports `SOURCE_STYLUS`. */
         fun hasStylus(context: Context): Boolean {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -185,7 +186,7 @@ internal fun PageMenu(state: EditorUiState, actions: EditorActions, modifier: Mo
     val c = colors
     Column(
         modifier
-            .widthIn(min = 220.dp)
+            .width(240.dp)
             .floatingSurface(RoundedCornerShape(Radii.menu), Elevation.Menu)
             .padding(6.dp),
     ) {

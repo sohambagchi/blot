@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import app.screenscratch.canvas.NoteCanvas
+import app.screenscratch.core.model.PageSetup
 import app.screenscratch.ui.editor.Editor
 import app.screenscratch.ui.library.Library
 import app.screenscratch.ui.theme.ScratchTheme
@@ -70,6 +72,14 @@ private fun EditorScreen(session: EditorSession) {
             state.colourPanelOpen -> editor.setColourPanelOpen(false)
             else -> editor.back()
         }
+    }
+    LaunchedEffect(session) {
+        // CanvasController's first fit puts an infinite canvas at the origin; an existing note's
+        // ink may be elsewhere. Two frames: the canvas view has its size by then.
+        withFrameNanos {}
+        withFrameNanos {}
+        val note = session.controller.note.value
+        if (note.page == PageSetup.Infinite && note.elements.isNotEmpty()) session.controller.fit()
     }
     Editor(state, editor) {
         NoteCanvas(

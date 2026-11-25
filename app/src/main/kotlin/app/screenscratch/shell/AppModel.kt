@@ -39,6 +39,7 @@ import app.screenscratch.ui.library.StorageState
 import app.screenscratch.ui.settings.DebugScreen
 import app.screenscratch.ui.settings.SettingsUiState
 import app.screenscratch.ui.theme.ThemeSetting
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -210,6 +211,8 @@ class AppModel(
         refreshJob = main.launch {
             val list = try {
                 withStore { it.list() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't list your notes")
                 return@launch
@@ -220,6 +223,8 @@ class AppModel(
                 if (summary.damaged || thumbnails.file(summary.id.value, summary.modified, darkNow) != null) continue
                 val card = try {
                     withStore { s -> renderThumbnail(s, summary, darkNow); card(summary, darkNow) }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "thumbnail of ${summary.id} failed", e)
                     continue
@@ -278,6 +283,8 @@ class AppModel(
                     if (e.suppressed.any { it is NewerFormat }) "This note needs a newer version of Screen Scratch"
                     else "Couldn't open the note: its note.json and backup are both unreadable",
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't open the note")
             } finally {
@@ -297,6 +304,8 @@ class AppModel(
                     it to it.create(NoteJson.encode(note).encodeToByteArray(), NoteMeta(note.title, note.modified.toEpochMilli()))
                 }
                 openSession(store, id, note, null, false)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't create the note")
             } finally {
@@ -311,6 +320,8 @@ class AppModel(
             try {
                 withStore { it.delete(NoteId(id)) }
                 withContext(io) { thumbnails.remove(id) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't delete the note")
             }
@@ -328,6 +339,8 @@ class AppModel(
             try {
                 val note = withStore { it.readNote(NoteId(id)) { b -> NoteJson.decode(b.decodeToString()) }.value }
                 withContext(io) { exporter.export(note, options, target) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't export the note")
             }
