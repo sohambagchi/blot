@@ -9,7 +9,7 @@ Only needed if the app goes public. For a sideloaded personal build, none of thi
   - GitHub Releases: upload signed APKs and let users update with Obtainium.
   - F-Droid: needs a reproducible build from source, no proprietary dependencies (none planned), and fastlane metadata.
   - Play Store: possible, since storage uses SAF and no broad storage permission.
-- **ABIs.** Ship arm64-v8a and armeabi-v7a, plus x86_64 for emulators. Or ship split APKs per ABI. Only relevant if native libraries are added.
+- **ABIs.** graphics-core ships native code. Both target devices are `arm64-v8a`, so release builds can filter to it; debug builds keep `x86_64` for emulators.
 - **Privacy.** No network permission and no analytics. Say so in the README; F-Droid flags anti-features.
 - **CI.** A GitHub Actions workflow that runs `:core:test` and `:app:testDebugUnitTest`, plus emulator tests via a KVM-enabled runner. Make release builds from tags.
 - **Repo hygiene.** Remove the absolute `git+file:///home/...` android-emu input from `flake.nix`. Publish android-emu or point at it by a GitHub URL, and offer a plain Gradle path for contributors without Nix.

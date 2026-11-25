@@ -6,7 +6,7 @@ A pen-based notes app for Android. It's built for a Lenovo TB-J616F tablet with 
 
 ```sh
 nix develop                      # JDK, Gradle wrapper, build SDK, emulator scripts
-emu-tablet                       # boot tab-31 (Android 12, 2000x1200 @ 240dpi) as emulator-5556
+emu-tablet                       # boot tab-31 (Android 12, 2000x1200 @ 204dpi) as emulator-5556
 EMU_API=35 emu-tablet            # same shape on Android 15 (tab-35)
 emu-up                           # boot emu-35 (Pixel 7 profile) as emulator-5554; EMU_API=31 for emu-31
 
@@ -15,6 +15,8 @@ emu-up                           # boot emu-35 (Pixel 7 profile) as emulator-555
 ANDROID_SERIAL=emulator-5556 ./gradlew :app:connectedDebugAndroidTest
 EMU_PORT=5556 emu-shot           # screenshot of the tablet emulator
 ```
+
+The main screen's "Pen test" measures a device's pen and shares a JSON report; install `app/build/outputs/apk/debug/app-debug.apk` to run it without adb.
 
 Docs live in [docs/INDEX.md](docs/INDEX.md). Open work is in [docs/TODO.md](docs/TODO.md).
 

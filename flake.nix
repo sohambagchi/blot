@@ -34,8 +34,8 @@
       }).androidsdk;
       sdkRoot = "${buildSdk}/libexec/android-sdk";
 
-      # Boots an AVD shaped like the Lenovo TB-J616F: 2000x1200 px, landscape-native.
-      # Density 240 (1333x800 dp) is assumed; the real tablet's `wm density` is unmeasured.
+      # Boots an AVD shaped like the Lenovo TB-J616F: 2000x1200 px at 204 dpi (1569x941 dp),
+      # landscape-native; see docs/analysis-artifacts/2026-11-24-1905-tb-j616f-measurements.md
       emu-tablet = pkgs.writeShellApplication {
         name = "emu-tablet";
         runtimeInputs = [ emu.sdk emu.emu-up pkgs.gnused pkgs.coreutils ];
@@ -49,14 +49,14 @@
           export ANDROID_SDK_ROOT="${emu.sdk}/libexec/android-sdk"
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
           if [[ ! -f "$avd_home/$EMU_NAME.ini" ]]; then
-            echo "Creating AVD $EMU_NAME (API $EMU_API, 2000x1200 @ 240dpi)"
+            echo "Creating AVD $EMU_NAME (API $EMU_API, 2000x1200 @ 204dpi)"
             echo no | avdmanager create avd -n "$EMU_NAME" \
               -k "system-images;android-$EMU_API;google_apis;x86_64" -d pixel_tablet >/dev/null
             cfg="$avd_home/$EMU_NAME.avd/config.ini"
             set_cfg() { sed -i "/^$1=/d" "$cfg"; echo "$1=$2" >> "$cfg"; }
             set_cfg hw.lcd.width 2000
             set_cfg hw.lcd.height 1200
-            set_cfg hw.lcd.density 240
+            set_cfg hw.lcd.density 204
             set_cfg hw.initialOrientation landscape
             set_cfg hw.keyboard yes
             set_cfg hw.ramSize 3072

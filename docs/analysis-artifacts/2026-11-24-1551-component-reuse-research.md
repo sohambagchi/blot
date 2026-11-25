@@ -60,6 +60,8 @@ Checked 2026-11-24. Items marked *unverified* still need checking on the real TB
 
 ## Device facts to confirm on the TB-J616F
 
+Measured: see [2026-11-24-1905-tb-j616f-measurements](2026-11-24-1905-tb-j616f-measurements.md).
+
 - `getprop ro.product.cpu.abilist`: is the userspace 64-bit? This decides which ABIs we ship.
 - `wm density`: the emulator assumes 240 (2000×1200 → 1333×800 dp).
 - `getevent -lp` plus a MotionEvent axis logger. We need:
