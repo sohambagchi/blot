@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1795591306,
-        "narHash": "sha256-wvRKXBwLtpXnmchQZwDpm7WjgJkIo+A9mR35mZASdyY=",
+        "lastModified": 1795591728,
+        "narHash": "sha256-3+5HnZrOt4HQKctt6+arPu5QfdZCmCrY+s0eV6A09/8=",
         "ref": "main",
-        "rev": "e16d3c43366b4293bcd3cd76c121f47173036217",
-        "revCount": 17,
+        "rev": "a60631a8ed77bd687deb1a758b2201337fd3f334",
+        "revCount": 18,
         "type": "git",
         "url": "file:///home/soham/dev/android-emu"
       },
@@ -17,6 +17,28 @@
         "ref": "main",
         "type": "git",
         "url": "file:///home/soham/dev/android-emu"
+      }
+    },
+    "depot": {
+      "inputs": {
+        "nixpkgs": [
+          "android-emu",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795591672,
+        "narHash": "sha256-SJna/uore6mGmBDlIWhcsaQt0QdG37WEaEr5Ww5Lfdw=",
+        "ref": "main",
+        "rev": "59ec08060b8eb1b0772bad239585ff31ee60d31c",
+        "revCount": 11,
+        "type": "git",
+        "url": "file:///home/soham/dev/depot"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "file:///home/soham/dev/depot"
       }
     },
     "nixpkgs": {
@@ -38,6 +60,7 @@
     "root": {
       "inputs": {
         "android-emu": "android-emu",
+        "depot": "depot",
         "nixpkgs": [
           "android-emu",
           "nixpkgs"

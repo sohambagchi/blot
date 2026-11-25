@@ -3,11 +3,14 @@
 
   inputs = {
     android-emu.url = "git+file:///home/soham/dev/android-emu?ref=main";
+    # depot: the update client and depot-publish; its committed main, not the working tree.
+    depot.url = "git+file:///home/soham/dev/depot?ref=main";
+    depot.inputs.nixpkgs.follows = "android-emu/nixpkgs";
     # Share android-emu's nixpkgs so the emulator SDK is not downloaded twice.
     nixpkgs.follows = "android-emu/nixpkgs";
   };
 
-  outputs = { self, nixpkgs, android-emu }:
+  outputs = { self, nixpkgs, android-emu, depot }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -69,12 +72,12 @@
       };
     in {
       # depotEnv builds depot's update client into the app (settings.gradle.kts) and points
-      # emu-publish at the server; see ~/dev/android-emu/depot/README.md.
+      # depot-publish at the server; see ~/dev/depot/README.md.
       devShells.${system}.default = pkgs.mkShell ({
         packages = [
           buildSdk
           pkgs.jdk21
-          emu.emu-up emu.emu-down emu.emu-shot emu.emu-publish
+          emu.emu-up emu.emu-down emu.emu-shot depot.packages.${system}.depot-publish
           emu-tablet
         ];
         ANDROID_HOME = sdkRoot;
@@ -82,6 +85,6 @@
         JAVA_HOME = "${pkgs.jdk21}";
         # Use the Nix-patched aapt2 instead of the generic-FHS one AGP downloads from Maven.
         GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
-      } // android-emu.lib.depotEnv);
+      } // depot.lib.depotEnv);
     };
 }
