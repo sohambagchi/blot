@@ -224,15 +224,45 @@ class TreeNoteStore<R : Any>(
         throw failure
     }
 
-    private fun places(): HashMap<String, Place<R>> = places ?: run {
-        refresh()
-        places!!
-    }
+    private fun places(): HashMap<String, Place<R>> = places ?: locate()
 
     private fun place(id: NoteId): Place<R> {
         places?.get(id.value)?.let { return it }
+        locate()[id.value]?.let { return it }
+        // Perhaps hidden by an interrupted move, which only a full listing settles.
         refresh()
         return places!![id.value] ?: throw NoSuchNoteException(id)
+    }
+
+    /**
+     * Finds every note and folder as [refresh] would, without reading any note: the root's
+     * directories the index knows as notes aren't listed, and every directory in a folder is
+     * taken for a note. For lookups, which then fail on a directory that isn't one.
+     */
+    private fun locate(): HashMap<String, Place<R>> {
+        val found = HashMap<String, Place<R>>()
+        val folders = HashMap<String, R>()
+        val inFolders = ArrayList<Pair<String, List<TreeEntry<R>>>>()
+        fun dirs(children: List<TreeEntry<R>>) = children.filter { it.isDirectory && !it.name.startsWith(".") }
+        for (c in dirs(tree.list(tree.root))) {
+            if (index.entries[c.name]?.summary != null) {
+                found[c.name] = Place(null, c.ref)
+                continue
+            }
+            val children = tree.list(c.ref)
+            if (NoteFiles.of(children).isNote) {
+                found[c.name] = Place(null, c.ref)
+            } else {
+                folders[c.name] = c.ref
+                inFolders += c.name to dirs(children)
+            }
+        }
+        for ((f, children) in inFolders.sortedBy { it.first }) {
+            for (c in children) found.putIfAbsent(c.name, Place(f, c.ref))
+        }
+        places = found
+        folderDirs = folders
+        return found
     }
 
     private fun parent(folder: String?): R {

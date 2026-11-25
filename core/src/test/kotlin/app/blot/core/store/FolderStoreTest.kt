@@ -298,6 +298,21 @@ class FolderStoreTest {
     }
 
     @Test
+    fun aLookupBeforeAnyListingFindsNotesWithoutReadingThem() {
+        val s = store()
+        s.createFolder("Work")
+        val top = s.note("Top", body = "t")
+        val inWork = s.note("Plan", "Work", "w")
+
+        summarized = 0
+        val other = TreeNoteStore(JavaFileTree(rootDir), tmp.newFolder("other-index"), { summarized++; TestNotes.meta(it) }, clock = { now })
+        assertEquals("w", other.body(inWork))
+        assertEquals("t", other.body(top))
+        assertEquals("Work", other.folderOf(inWork))
+        assertEquals(0, summarized)
+    }
+
+    @Test
     fun refreshListsTheRootAndEachFolderOnceAndReadsOnlyChangedNotes() {
         val first = store()
         first.createFolder("Work")
