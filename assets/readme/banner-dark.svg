@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320">
+<title>Blot: pen notes for Android</title>
+<defs><pattern id="d" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1.3" fill="#2B2B30"/></pattern></defs>
+<rect width="1280" height="320" fill="#17171A"/>
+<rect width="1280" height="320" fill="url(#d)"/>
+<g transform="translate(150 50) scale(2.2)">
+<rect width="108" height="108" rx="24" fill="#222226" stroke="#36363C" stroke-width="0.6"/>
+<g transform="translate(54 54) scale(0.86) translate(-54 -54)" fill="#F0EEEB">
+<path d="M40,24L40,78" fill="none" stroke="#F0EEEB" stroke-width="9" stroke-linecap="round"/>
+<path d="M44,58C46,48 56,45 63,48C71,51 74,59 72,67C70,75 63,80 55,80C48,80 43,77 41,72Z"/>
+<circle cx="78" cy="78" r="2.6"/>
+</g></g>
+<text x="430" y="168" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-2" fill="#ECEAE6">Blot</text>
+<text x="434" y="220" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="30" fill="#A3A09A">Pen notes for Android</text>
+<g fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+<path d="M800 235C860 190 900 270 960 225S1040 190 1090 215" stroke="#FF837B"/>
+<path d="M830 120C880 70 930 150 985 100S1070 60 1120 95" stroke="#76A6FF"/>
+<path d="M1030 270C1070 245 1110 285 1150 255" stroke="#62C886"/>
+</g>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108"><title>Blot</title>
+<rect width="108" height="108" rx="24" fill="#F6F5F2"/>
+<g transform="translate(54 54) scale(0.86) translate(-54 -54)" fill="#1C1B19">
+<path d="M40,24L40,78" fill="none" stroke="#1C1B19" stroke-width="9" stroke-linecap="round"/>
+<path d="M44,58C46,48 56,45 63,48C71,51 74,59 72,67C70,75 63,80 55,80C48,80 43,77 41,72Z"/>
+<circle cx="78" cy="78" r="2.6"/>
+</g>
+</svg>
