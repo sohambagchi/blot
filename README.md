@@ -1,4 +1,4 @@
-# Screen Scratch
+# Blot
 
 A pen-based notes app for Android. It's built for a Lenovo TB-J616F tablet with a Lenovo pen, and also runs on a Pixel 7a for viewing and light editing.
 

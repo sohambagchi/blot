@@ -3,8 +3,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <provider
-            android:name="app.screenscratch.storage.TestDocumentsProvider"
-            android:authorities="app.screenscratch.test.documents"
+            android:name="app.blot.storage.TestDocumentsProvider"
+            android:authorities="app.blot.test.documents"
             android:exported="true"
             android:grantUriPermissions="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">
@@ -13,8 +13,8 @@
             </intent-filter>
         </provider>
         <provider
-            android:name="app.screenscratch.storage.TestGrantProvider"
-            android:authorities="app.screenscratch.test.grant"
+            android:name="app.blot.storage.TestGrantProvider"
+            android:authorities="app.blot.test.grant"
             android:exported="true" />
     </application>
 </manifest>

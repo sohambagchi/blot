@@ -3,7 +3,7 @@
 Only needed if the app goes public. For a sideloaded personal build, none of this blocks anything.
 
 - **Third-party notices.** The project is MIT ([ADR](../adr/2026-11-24-1742-mit-licence.md)). List ported code and libraries, with their copyright lines and any Apache `NOTICE` text, in a `THIRD_PARTY.md` or an about screen.
-- **Application ID.** `app.screenscratch` is a placeholder. Use a domain or GitHub-namespace ID we can keep (e.g. `io.github.<user>.screenscratch`). Changing it later breaks updates for anyone who installed it.
+- **Application ID.** `app.blot` is a placeholder. Use a domain or GitHub-namespace ID we can keep (e.g. `io.github.<user>.screenscratch`). Changing it later breaks updates for anyone who installed it.
 - **Signing.** Make one release keystore and keep it out of git and backed up. Losing it means users must uninstall to update. GitHub Actions can sign with the keystore stored as encrypted secrets.
 - **Distribution.**
   - GitHub Releases: upload signed APKs and let users update with Obtainium.

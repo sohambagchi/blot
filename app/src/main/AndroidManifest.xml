@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="Screen Scratch"
+        android:label="Blot"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <!-- Rotation and resizes are handled in-process so the canvas is not destroyed and rebuilt. -->
         <activity
