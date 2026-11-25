@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import app.screenscratch.core.edit.Similarity
 import app.screenscratch.core.model.Arrowhead
 import app.screenscratch.core.model.Element
 import app.screenscratch.core.model.Image
@@ -50,8 +51,11 @@ class SceneRenderer(
     fun color(argb: Int, dark: Boolean): Int =
         if (!dark) argb else darkColors.getOrPut(argb) { InkColors.darkMode(argb) }
 
-    /** Draws [note] as seen through [viewport] into a [width] × [height] pixel area at the canvas origin. */
-    fun draw(canvas: Canvas, note: Note, viewport: Viewport, width: Int, height: Int, dark: Boolean) {
+    /**
+     * Draws [note] as seen through [viewport] into a [width] × [height] pixel area at the canvas
+     * origin. [preview] changes how some elements are shown while a tool gesture runs.
+     */
+    fun draw(canvas: Canvas, note: Note, viewport: Viewport, width: Int, height: Int, dark: Boolean, preview: ScenePreview? = null) {
         val palette = CanvasPalette.of(dark)
         val page = note.page
         fill.color = if (page is PageSetup.Pages) palette.desk else palette.paper
@@ -65,6 +69,19 @@ class SceneRenderer(
         if (page is PageSetup.Pages) drawPages(canvas, page, visible, palette)
         var drawn = 0
         for (e in note.elements) {
+            if (preview != null && e.id in preview.hidden) continue
+            if (preview != null && e.id in preview.transformed) {
+                val t = preview.transform
+                if (!t.rect(e.bounds).intersects(visible)) continue
+                canvas.save()
+                canvas.translate(t.originX + t.dx, t.originY + t.dy)
+                canvas.scale(t.scale, t.scale)
+                canvas.translate(-t.originX, -t.originY)
+                drawElement(canvas, e, dark, palette)
+                canvas.restore()
+                drawn++
+                continue
+            }
             if (!e.bounds.intersects(visible)) continue
             drawElement(canvas, e, dark, palette)
             drawn++
@@ -239,3 +256,14 @@ class SceneRenderer(
         }
     }
 }
+
+/**
+ * How [SceneRenderer.draw] shows a note while a tool gesture runs, without changing the note:
+ * the elements in [transformed] are drawn through [transform] (a selection being moved or
+ * scaled), and those in [hidden] are not drawn (a text box being edited).
+ */
+class ScenePreview(
+    val transformed: Set<String> = emptySet(),
+    val transform: Similarity = Similarity.IDENTITY,
+    val hidden: Set<String> = emptySet(),
+)

@@ -43,13 +43,17 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.screenscratch.canvas.CanvasController
+import app.screenscratch.canvas.EraserMode
 import app.screenscratch.canvas.FrontBufferContent
 import app.screenscratch.canvas.InkCanvasView
+import app.screenscratch.canvas.LineArrows
 import app.screenscratch.canvas.NoteCanvas
+import app.screenscratch.canvas.SelectMode
 import app.screenscratch.canvas.Tool
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.PageSetup
+import app.screenscratch.core.model.ShapeKind
 import app.screenscratch.core.model.format.NoteJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -166,13 +170,44 @@ class CanvasTestActivity : ComponentActivity() {
                             .border(if (selected) 3.dp else 1.dp, if (selected) ink else muted)
                             .padding(4.dp)
                             .background(Color(argb))
-                            .clickable { c.color = Argb(argb); if (c.tool != Tool.PEN) c.tool = Tool.PEN },
+                            .clickable { c.color = Argb(argb); if (c.tool == Tool.ERASER || c.tool == Tool.PAN) c.tool = Tool.PEN },
                     )
                 }
-                for (t in listOf(Tool.PEN, Tool.ERASER, Tool.PAN)) {
+                for (t in Tool.entries) {
                     Action(t.label, text, selected = c.tool == t) { c.tool = t }
                 }
-                if (c.tool == Tool.SELECT) Action(Tool.SELECT.label, text, selected = true) { }
+                when (c.tool) {
+                    Tool.ERASER -> Action(if (c.eraserMode == EraserMode.PARTIAL) "Erase: part" else "Erase: whole", text) {
+                        c.eraserMode = if (c.eraserMode == EraserMode.PARTIAL) EraserMode.WHOLE_STROKE else EraserMode.PARTIAL
+                    }
+                    Tool.SELECT -> {
+                        Action(if (c.selectMode == SelectMode.LASSO) "Lasso" else "Rectangle", text) {
+                            c.selectMode = if (c.selectMode == SelectMode.LASSO) SelectMode.RECTANGLE else SelectMode.LASSO
+                        }
+                        if (c.hasSelection) {
+                            Action("Delete", text) { c.deleteSelection() }
+                            Action("Duplicate", text) { c.duplicateSelection() }
+                            Action("Front", text) { c.bringToFront() }
+                            Action("Forward", text) { c.bringForward() }
+                            Action("Backward", text) { c.sendBackward() }
+                            Action("Back", text) { c.sendToBack() }
+                        }
+                    }
+                    Tool.SHAPE -> {
+                        Action(if (c.shapeKind == ShapeKind.RECTANGLE) "Rectangle" else "Ellipse", text) {
+                            c.shapeKind = if (c.shapeKind == ShapeKind.RECTANGLE) ShapeKind.ELLIPSE else ShapeKind.RECTANGLE
+                        }
+                        Action("Fill: ${onOff(c.shapeFill != null)}", text) { c.shapeFill = if (c.shapeFill == null) Argb(FILL) else null }
+                        Action("Square: ${onOff(c.constrainShapes)}", text) { c.constrainShapes = !c.constrainShapes }
+                    }
+                    Tool.LINE -> {
+                        Action("Arrows: ${c.lineArrows.name.lowercase()}", text) {
+                            c.lineArrows = LineArrows.entries[(c.lineArrows.ordinal + 1) % LineArrows.entries.size]
+                        }
+                        Action("Snap 15°: ${onOff(c.snapAngles)}", text) { c.snapAngles = !c.snapAngles }
+                    }
+                    else -> Unit
+                }
                 Action("Undo", text.copy(color = if (c.canUndo) ink else muted)) { c.undo() }
                 Action("Redo", text.copy(color = if (c.canRedo) ink else muted)) { c.redo() }
                 Action("Pen only: ${onOff(c.penOnly)}", text) { c.penOnly = !c.penOnly }
@@ -233,6 +268,9 @@ class CanvasTestActivity : ComponentActivity() {
             Tool.ERASER -> "Eraser"
             Tool.PAN -> "Pan"
             Tool.SELECT -> "Select"
+            Tool.SHAPE -> "Shape"
+            Tool.LINE -> "Line"
+            Tool.TEXT -> "Text"
         }
 
     companion object {
@@ -241,6 +279,7 @@ class CanvasTestActivity : ComponentActivity() {
         private const val TAG = "CanvasTest"
         private const val SAVE_DEBOUNCE_MS = 500L
         private const val A4_PAGES = 3
+        private const val FILL = 0xFFFFF59D.toInt()
         /** Black, red, blue, green. */
         private val PEN_COLORS = listOf(0xFF000000.toInt(), 0xFFE53935.toInt(), 0xFF1E5BD8.toInt(), 0xFF2E7D32.toInt())
     }

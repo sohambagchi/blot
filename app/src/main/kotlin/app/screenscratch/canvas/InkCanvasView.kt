@@ -8,9 +8,17 @@ import android.graphics.PorterDuff
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import android.text.InputType
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.core.widget.doAfterTextChanged
 import androidx.graphics.lowlatency.LowLatencyCanvasView
 import androidx.graphics.surface.SurfaceControlCompat
 import app.screenscratch.core.model.Element
@@ -19,6 +27,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToInt
 
 /**
  * The inking canvas: a [SceneView] that draws the note at the controller's viewport, and, once
@@ -77,6 +86,13 @@ class InkCanvasView(
     private var receivedNanos = 0L
     private var lastCommitMs = 0L
     private var bufferHoldsContent = false
+    private var swallowing = false
+
+    private val toolOverlay = ToolOverlayPainter(density)
+
+    /** The text editor over the box being edited, while [CanvasController.editingText] is set. */
+    var textEditor: EditText? = null
+        private set
 
     init {
         addView(sceneView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -86,6 +102,8 @@ class InkCanvasView(
         super.onAttachedToWindow()
         controller.listener = this
         controller.eraserRadiusPx = ERASER_RADIUS_DP * density
+        controller.textMeasurer = { uiRenderer.text.measureHeight(it) }
+        if (controller.editingText != null) onTextEditChanged()
         if (useFrontBuffer && lowLatencyView == null) {
             // Add the SurfaceView only after the window's first frame: on Android 12 a window that
             // holds one from its first frame can wait for it forever (see the TB-J616F measurements).
@@ -123,12 +141,71 @@ class InkCanvasView(
     override fun onNoteChanged() = sceneChanged()
 
     override fun onViewportChanged() {
+        placeTextEditor()
         viewportChangedSinceStroke = true
         sceneChanged()
         scheduleBufferClear()
     }
 
-    override fun onAppearanceChanged() = sceneChanged()
+    override fun onAppearanceChanged() {
+        sceneChanged()
+        textEditor?.let { e -> controller.editingText?.let { e.setTextColor(uiRenderer.color(it.color.value, controller.darkMode)) } }
+    }
+
+    override fun onTextEditChanged() {
+        val box = controller.editingText
+        val imm = context.getSystemService(InputMethodManager::class.java)
+        val old = textEditor
+        if (old != null) {
+            imm?.hideSoftInputFromWindow(old.windowToken, 0)
+            textEditor = null
+            removeView(old)
+        }
+        if (box == null) return
+        val e = TextEditor(context)
+        addView(e, LayoutParams(1, LayoutParams.WRAP_CONTENT))
+        textEditor = e
+        placeTextEditor()
+        e.setText(box.markdown)
+        e.setSelection(e.length())
+        e.requestFocus()
+        e.post { imm?.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT) }
+    }
+
+    /** Lays the text editor over the box being edited at the current viewport. */
+    private fun placeTextEditor() {
+        val e = textEditor ?: return
+        val box = controller.editingText ?: return
+        val v = controller.viewport
+        e.setTextSize(TypedValue.COMPLEX_UNIT_PX, box.fontSize * v.scale)
+        e.setTextColor(uiRenderer.color(box.color.value, controller.darkMode))
+        val w = (box.frame.width * v.scale).roundToInt().coerceAtLeast(1)
+        if (e.layoutParams.width != w) e.layoutParams = e.layoutParams.apply { width = w }
+        e.translationX = v.toScreenX(box.frame.x)
+        e.translationY = v.toScreenY(box.frame.y)
+    }
+
+    /** Edits a text box's markdown source; Back commits it, as a tap outside does. */
+    private inner class TextEditor(context: Context) : EditText(context) {
+        init {
+            background = null
+            setPadding(0, 0, 0, 0)
+            includeFontPadding = false
+            gravity = Gravity.TOP or Gravity.START
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            // No full-screen extract editor in landscape: the text is edited where it sits.
+            imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
+            doAfterTextChanged { controller.updateTextDraft(it?.toString().orEmpty()) }
+        }
+
+        override fun onKeyPreIme(keyCode: Int, event: KeyEvent): Boolean {
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                if (event.action == KeyEvent.ACTION_UP) controller.finishTextEdit()
+                return true
+            }
+            return super.onKeyPreIme(keyCode, event)
+        }
+    }
 
     private fun sceneChanged() {
         sceneGeneration++
@@ -154,6 +231,15 @@ class InkCanvasView(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val a = event.actionMasked
+        if (a == MotionEvent.ACTION_DOWN && controller.editingText != null) {
+            // A touch outside the text editor commits the text and does nothing else.
+            controller.finishTextEdit()
+            swallowing = true
+        }
+        if (swallowing) {
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) swallowing = false
+            return true
+        }
         if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_POINTER_DOWN) {
             // Same clock as System.nanoTime (CLOCK_MONOTONIC); whole milliseconds before API 34.
             downNanos = if (Build.VERSION.SDK_INT >= 34) event.eventTimeNanos else event.eventTime * 1_000_000
@@ -274,6 +360,20 @@ class InkCanvasView(
             controller.transform(dx, dy, factor, focusX, focusY)
 
         override fun transformEnd() = Unit
+
+        override fun editStart(sample: InputSample) {
+            val v = controller.viewport
+            controller.toolStart(v.toCanvasX(sample.x), v.toCanvasY(sample.y))
+        }
+
+        override fun editMove(samples: List<InputSample>) {
+            val v = controller.viewport
+            for (s in samples) controller.toolMove(v.toCanvasX(s.x), v.toCanvasY(s.y))
+        }
+
+        override fun editEnd() = controller.toolEnd()
+
+        override fun editCancel() = controller.toolCancel()
 
         private fun add(b: StrokeBuilder, v: Viewport, s: InputSample): LiveSegment? =
             b.add(v.toCanvasX(s.x), v.toCanvasY(s.y), s.pressure, s.tilt, s.orientation, s.timeMs)
@@ -441,7 +541,8 @@ class InkCanvasView(
             val t0 = System.nanoTime()
             val v = controller.viewport
             val dark = controller.darkMode
-            uiRenderer.draw(canvas, controller.note.value, v, width, height, dark)
+            uiRenderer.draw(canvas, controller.note.value, v, width, height, dark, controller.scenePreview())
+            toolOverlay.draw(canvas, controller, uiRenderer, dark)
             val b = builder
             if (b != null && lowLatencyView == null) {
                 canvas.save()

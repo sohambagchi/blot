@@ -30,6 +30,17 @@ interface InputTarget {
 
     /** A pan or pinch gesture ended. */
     fun transformEnd()
+
+    /** A drag with [Tool.SELECT], [Tool.SHAPE], [Tool.LINE] or [Tool.TEXT] started at [sample]. */
+    fun editStart(sample: InputSample) {}
+
+    fun editMove(samples: List<InputSample>) {}
+
+    /** The edit gesture finished and is applied. */
+    fun editEnd() {}
+
+    /** The edit gesture was cancelled and leaves no trace. */
+    fun editCancel() {}
 }
 
 /**
@@ -46,7 +57,7 @@ interface InputTarget {
  * Not thread-safe; call from the UI thread.
  */
 class InputRouter(private val target: InputTarget) {
-    private enum class Role { DRAW, ERASE, PAN, NONE }
+    private enum class Role { DRAW, ERASE, PAN, EDIT, NONE }
 
     private sealed interface Gesture
     private data object None : Gesture
@@ -101,7 +112,7 @@ class InputRouter(private val target: InputTarget) {
             Tool.PEN -> Role.DRAW
             Tool.ERASER -> Role.ERASE
             Tool.PAN -> Role.PAN
-            Tool.SELECT -> Role.NONE
+            Tool.SELECT, Tool.SHAPE, Tool.LINE, Tool.TEXT -> Role.EDIT
         }
     }
 
@@ -121,6 +132,10 @@ class InputRouter(private val target: InputTarget) {
                 target.inkStart(if (role == Role.DRAW) InkMode.DRAW else InkMode.ERASE, p.kind, first)
                 if (samples.size > 1) target.inkMove(samples.subList(1, samples.size))
             }
+            Role.EDIT -> {
+                target.editStart(first)
+                if (samples.size > 1) target.editMove(samples.subList(1, samples.size))
+            }
             Role.PAN, Role.NONE -> Unit
         }
     }
@@ -129,6 +144,7 @@ class InputRouter(private val target: InputTarget) {
         when (g.role) {
             Role.DRAW, Role.ERASE -> if (commit) target.inkEnd() else target.inkCancel()
             Role.PAN -> target.transformEnd()
+            Role.EDIT -> if (commit) target.editEnd() else target.editCancel()
             Role.NONE -> Unit
         }
         gesture = None
@@ -146,6 +162,7 @@ class InputRouter(private val target: InputTarget) {
                 }
                 else -> {
                     if (g.role == Role.DRAW || g.role == Role.ERASE) target.inkCancel()
+                    if (g.role == Role.EDIT) target.editCancel()
                     val a = e.pointer(g.id) ?: return begin(p, e.buttons, p.samples)
                     gesture = pinchOf(a, p)
                 }
@@ -179,6 +196,7 @@ class InputRouter(private val target: InputTarget) {
                 when (g.role) {
                     Role.DRAW, Role.ERASE -> target.inkMove(p.samples)
                     Role.PAN -> panTo(g, p.current)
+                    Role.EDIT -> target.editMove(p.samples)
                     Role.NONE -> Unit
                 }
             }
@@ -226,6 +244,7 @@ class InputRouter(private val target: InputTarget) {
             is Single -> {
                 // The lifting sample's pressure is often 0, so it isn't inked.
                 if (g.role == Role.PAN) e.pointer(g.id)?.let { panTo(g, it.current) }
+                if (g.role == Role.EDIT) e.pointer(g.id)?.let { target.editMove(listOf(it.current)) }
                 end(g, commit = true)
             }
             is Pinch -> {
