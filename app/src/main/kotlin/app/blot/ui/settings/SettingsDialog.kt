@@ -1,5 +1,6 @@
 package app.blot.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -170,6 +171,16 @@ private fun SettingsBody(settings: SettingsUiState, storage: StorageState, actio
             BasicText("MIT licence · Open-source licences", style = BlotType.caption.copy(color = c.muted))
         }
         GlyphIcon(BlotIcons.ChevronRight, c.muted, size = 18.dp, strokeWidth = 2f)
+    }
+    if (settings.canCheckForUpdates) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = actions::checkForUpdates),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BasicText("Check for updates", Modifier.weight(1f), style = BlotType.body.copy(color = c.text))
+            GlyphIcon(BlotIcons.ChevronRight, c.muted, size = 18.dp, strokeWidth = 2f)
+        }
     }
     if (developer) DeveloperSection(settings, actions)
 }

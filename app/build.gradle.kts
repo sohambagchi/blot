@@ -75,6 +75,9 @@ android {
 
     buildFeatures { compose = true }
 
+    // Updates.kt calls depot's "App updates" screen only when depot's client is in the build.
+    sourceSets.getByName("main").kotlin.directories.add(if (findProject(":depot") != null) "src/depot/kotlin" else "src/nodepot/kotlin")
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

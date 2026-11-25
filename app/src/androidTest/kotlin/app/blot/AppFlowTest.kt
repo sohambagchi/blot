@@ -28,6 +28,7 @@ import app.blot.core.store.NoteMeta
 import app.blot.core.store.TreeNoteStore
 import app.blot.shell.AppSettings
 import app.blot.shell.Screen
+import app.blot.shell.Updates
 import app.blot.storage.NoteFolder
 import app.blot.storage.TestFolder
 import org.junit.After
@@ -191,6 +192,25 @@ class AppFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.onNodeWithText("Grant access again").assertExists()
             compose.onNodeWithText("Choose another folder").assertExists()
+        }
+    }
+
+    @Test
+    fun checkForUpdatesOpensTheUpdatersScreen() {
+        // Builds without depot's client have no updater and no About row to test.
+        val component = Updates.intent(context)?.component ?: return
+        // Blocking: the screen is counted, not started, so no network check runs.
+        val monitor = instrumentation.addMonitor(component.className, null, true)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                compose.onNodeWithText("Settings").performClick()
+                compose.onNodeWithText("Check for updates").performClick()
+                val deadline = SystemClock.uptimeMillis() + 5_000
+                while (monitor.hits == 0 && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(50)
+                assertEquals(1, monitor.hits)
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor)
         }
     }
 

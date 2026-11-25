@@ -10,6 +10,8 @@ data class SettingsUiState(
     /** False: primary erases while held, secondary switches to the pointer. True swaps them. */
     val swapSideButtons: Boolean = false,
     val version: String = "",
+    /** The build carries an updater, so About offers "Check for updates". */
+    val canCheckForUpdates: Boolean = false,
     /** Developer setting: the low-latency buffer holds the whole note while inking, not just the ink. */
     val frontBufferWholeNote: Boolean = false,
 )
@@ -29,5 +31,7 @@ interface SettingsActions {
     fun forgetFolder()
 
     fun setFrontBufferWholeNote(on: Boolean) {}
+    /** Opens the updater's screen, which checks at once and offers to install. */
+    fun checkForUpdates() {}
     fun openDebugScreen(screen: DebugScreen) {}
 }

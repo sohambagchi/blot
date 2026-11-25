@@ -171,6 +171,11 @@ class FakeLibrary(
     }
     override fun exportToFolder() = closeExport()
     override fun shareExport() {}
+    var updateChecks = 0
+    fun setCanCheckForUpdates(on: Boolean) = update { copy(settings = settings.copy(canCheckForUpdates = on)) }
+    override fun checkForUpdates() {
+        updateChecks++
+    }
 
     override fun deleteNote(id: String) {
         samples = samples.filter { it.id != id }

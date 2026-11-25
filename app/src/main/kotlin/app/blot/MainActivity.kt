@@ -1,6 +1,7 @@
 package app.blot
 
 import android.content.Intent
+import app.blot.shell.Updates
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,7 +30,9 @@ class MainActivity : ComponentActivity() {
         app = AppModel(
             applicationContext, folder, exporter = LauncherExporter(this),
             version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty(),
+            canCheckForUpdates = Updates.intent(this) != null,
         )
+        app.openUpdates = { Updates.intent(this)?.let(::startActivity) }
         val picker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree(), app::onTreePicked)
         app.pickFolder = { picker.launch(it) }
         app.openDebug = { screen ->
