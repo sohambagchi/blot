@@ -15,6 +15,8 @@ data class MarkdownTheme(
     /** Page colour behind the text; used for the tick inside a checked task box. */
     @ColorInt val background: Int,
     val baseTextSize: Float = 16f,
+    /** Underlines maths that failed to typeset. */
+    @ColorInt val errorColor: Int = 0xFFD93025.toInt(),
 ) {
     companion object {
         /** Light page: #1C1B19 text on #F6F5F2. */
@@ -35,6 +37,7 @@ data class MarkdownTheme(
             linkColor = 0xFF6EA0FF.toInt(),
             quoteBarColor = 0xFF4A4A51.toInt(),
             background = 0xFF17171A.toInt(),
+            errorColor = 0xFFFF7B72.toInt(),
         )
     }
 }

@@ -125,7 +125,7 @@ class MarkdownLayout(
             var i = lineStart
             while (i < end) {
                 val next = text.nextSpanTransition(i, end, CharacterStyle::class.java)
-                if (text.getSpans(i, next, BoxSpan::class.java).isEmpty()) {
+                if (text.getSpans(i, next, ReplacementSpan::class.java).isEmpty()) {
                     styledPaint(b, i, next, runPaint)
                     val style = runStyle(runPaint, text.getSpans(i, next, CodeSpan::class.java).isNotEmpty())
                     val link = text.getSpans(i, next, LinkSpan::class.java).lastOrNull()?.url
@@ -212,16 +212,22 @@ class MarkdownLayout(
             )
         }
 
-        val codePaint = TextPaint()
-        for (span in text.getSpans(0, text.length, CodeSpan::class.java)) {
-            if (span.block) continue
+        /** Calls [f] with each line's part of [span], trailing whitespace at a line end left out. */
+        fun forEachLineSegment(span: Any, f: (line: Int, segStart: Int, segEnd: Int) -> Unit) {
             val start = text.getSpanStart(span)
             val end = text.getSpanEnd(span)
             for (line in layout.getLineForOffset(start)..lastLine(span)) {
                 val segStart = max(start, layout.getLineStart(line))
                 var segEnd = minOf(end, layout.getLineEnd(line))
                 while (segEnd > segStart && segEnd == layout.getLineEnd(line) && text[segEnd - 1].isWhitespace()) segEnd--
-                if (segEnd <= segStart) continue
+                if (segEnd > segStart) f(line, segStart, segEnd)
+            }
+        }
+
+        val codePaint = TextPaint()
+        for (span in text.getSpans(0, text.length, CodeSpan::class.java)) {
+            if (span.block) continue
+            forEachLineSegment(span) { line, segStart, segEnd ->
                 styledPaint(b, segStart, segEnd, codePaint)
                 val x = layout.getPrimaryHorizontal(segStart)
                 val w = codePaint.advance(text, segStart, segEnd)
@@ -233,6 +239,25 @@ class MarkdownLayout(
                     theme.codeBackground, pad,
                 )
             }
+        }
+
+        for (span in text.getSpans(0, text.length, MathErrorSpan::class.java)) {
+            forEachLineSegment(span) { line, segStart, segEnd ->
+                styledPaint(b, segStart, segEnd, codePaint)
+                val x = layout.getPrimaryHorizontal(segStart)
+                val w = codePaint.advance(text, segStart, segEnd)
+                val y = layout.getLineBaseline(line) + codePaint.fontMetrics.descent * 0.45f
+                val thickness = max(1f, codePaint.textSize * 0.07f)
+                out += MarkdownDecoration.Box(x, y, x + w, y + thickness, theme.errorColor)
+            }
+        }
+
+        for (span in text.getSpans(0, text.length, MathSpan::class.java)) {
+            val start = text.getSpanStart(span)
+            if (span.box.path.isEmpty) continue
+            styledPaint(b, start, start + 1, codePaint)
+            val baseline = layout.getLineBaseline(layout.getLineForOffset(start)).toFloat()
+            out += MarkdownDecoration.Math(span.box.path, layout.getPrimaryHorizontal(start), baseline, codePaint.color)
         }
 
         for (span in text.getSpans(0, text.length, RuleSpan::class.java)) {

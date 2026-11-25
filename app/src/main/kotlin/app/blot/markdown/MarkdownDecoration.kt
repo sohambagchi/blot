@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.TextPaint
+import app.blot.markdown.math.MathPath
 
 /**
  * A non-text shape of the rendered markdown: block backgrounds, quote bars, list markers, rules
@@ -71,6 +72,19 @@ sealed interface MarkdownDecoration {
             paint.textSize = textSize
             paint.typeface = Typeface.DEFAULT
             canvas.drawText(text, x, baseline, paint)
+        }
+    }
+
+    /**
+     * Typeset maths: [path]'s outlines filled in [color], its origin (baseline, left edge) at
+     * ([x], [baseline]). The same outlines serve every output, SVG included.
+     */
+    class Math(val path: MathPath, val x: Float, val baseline: Float, val color: Int) : MarkdownDecoration {
+        private val drawn: Path by lazy { path.toPath(x, baseline) }
+
+        override fun draw(canvas: Canvas, paint: TextPaint) {
+            paint.reset(color, Paint.Style.FILL, 0f)
+            canvas.drawPath(drawn, paint)
         }
     }
 

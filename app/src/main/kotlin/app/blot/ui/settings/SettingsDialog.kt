@@ -48,7 +48,12 @@ val Licences = listOf(
     Licence("AndroidX: Compose UI and Foundation, Activity, Core, Graphics, Input", "Apache License 2.0"),
     Licence("Kotlin standard library and kotlinx.serialization", "Apache License 2.0"),
     Licence("commonmark-java and its strikethrough and task-list extensions", "BSD 2-Clause"),
+    Licence("Latin Modern Math 1.959, as Blot Math", "GUST Font License (LPPL 1.3c)", "Subset for maths; full licence below"),
+    Licence("AndroidMath and iosMath typesetter", "MIT", "Ported for maths; full licence below"),
 )
+
+/** Full licence texts shown under the list, in [Licences] order. */
+private val LicenceTexts = listOf(R.raw.licence_inter_ofl, R.raw.licence_latin_modern_math, R.raw.licence_math_mit)
 
 /**
  * The settings dialog (`Library.dc.html`, settings): storage folder, theme, the pen's side
@@ -196,9 +201,10 @@ private fun DeveloperSection(settings: SettingsUiState, actions: SettingsActions
 private fun LicenceList() {
     val c = colors
     val context = LocalContext.current
-    val ofl = remember {
-        runCatching { context.resources.openRawResource(R.raw.licence_inter_ofl).bufferedReader().use { it.readText() } }
-            .getOrDefault("")
+    val texts = remember {
+        LicenceTexts.map { id ->
+            runCatching { context.resources.openRawResource(id).bufferedReader().use { it.readText() } }.getOrDefault("")
+        }
     }
     BasicText(
         "Blot is MIT licensed. It includes:",
@@ -214,6 +220,8 @@ private fun LicenceList() {
             )
         }
     }
-    Rule(Modifier.padding(vertical = 8.dp))
-    BasicText(ofl, style = BlotType.monoCaption.copy(color = c.muted))
+    for (text in texts) {
+        Rule(Modifier.padding(vertical = 8.dp))
+        BasicText(text, style = BlotType.monoCaption.copy(color = c.muted))
+    }
 }

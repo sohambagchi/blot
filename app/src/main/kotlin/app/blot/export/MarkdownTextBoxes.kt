@@ -3,6 +3,7 @@ package app.blot.export
 import android.graphics.Canvas
 import app.blot.canvas.TextBoxRenderer
 import app.blot.core.export.SvgText
+import app.blot.core.export.SvgXml
 import app.blot.core.model.TextBox
 import app.blot.markdown.MarkdownDecoration
 import app.blot.markdown.MarkdownImageLoader
@@ -56,6 +57,7 @@ internal class MarkdownTextBoxes(
                 is MarkdownDecoration.Polyline -> SvgText.Decoration.Polyline(d.points, d.color, d.strokeWidth)
                 is MarkdownDecoration.Label -> SvgText.Decoration.Label(d.text, d.x, d.baseline, d.textSize, d.color)
                 is MarkdownDecoration.Image -> SvgText.Decoration.Image(d.path, d.left, d.top, d.right, d.bottom)
+                is MarkdownDecoration.Math -> SvgText.Decoration.Path(d.path.svgData(d.x, d.baseline) { v, sb -> SvgXml.num(v, sb) }, d.color)
             }
         }
         return SvgText(lines, decorations)
