@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The design's paper and ink. -->
+    <color name="icon_paper">#F6F5F2</color>
+    <color name="icon_ink">#1C1B19</color>
+</resources>
