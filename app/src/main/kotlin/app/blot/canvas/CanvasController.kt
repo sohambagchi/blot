@@ -17,6 +17,7 @@ import app.blot.core.model.Image
 import app.blot.core.model.LineRoute
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
+import app.blot.core.model.Line
 import app.blot.core.model.Rect
 import app.blot.core.model.Shape
 import app.blot.core.model.ShapeKind
@@ -29,6 +30,7 @@ import app.blot.core.model.sendToBack
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -632,7 +634,8 @@ class CanvasController(initial: Note) {
 
     /**
      * Erases along the canvas-unit capsule from a to b with radius [r], by [eraserMode]: whole
-     * strokes it touches, or the parts of strokes it covers. Returns the strokes it changed.
+     * strokes it touches, or the parts of strokes it covers. Shapes and lines it touches go whole
+     * in either mode. Returns the elements it changed.
      */
     internal fun eraseAlong(ax: Float, ay: Float, bx: Float, by: Float, r: Float): Int {
         val n = _note.value
@@ -648,7 +651,12 @@ class CanvasController(initial: Note) {
         var changed = 0
         var out: ArrayList<Element>? = null
         for ((i, e) in n.elements.withIndex()) {
-            val pieces = if (e is Stroke) PartialErase.erase(e, ax, ay, bx, by, r) else null
+            val pieces = when {
+                e is Stroke -> PartialErase.erase(e, ax, ay, bx, by, r)
+                (e is Shape || e is Line) && e.bounds.inflate(r).intersects(Rect.fromEdges(min(ax, bx), min(ay, by), max(ax, bx), max(ay, by))) &&
+                    Selection.inkTouches(e, ax, ay, bx, by, r, outlines::outline) -> emptyList()
+                else -> null
+            }
             if (pieces == null) {
                 out?.add(e)
                 continue
