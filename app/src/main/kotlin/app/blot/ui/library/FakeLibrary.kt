@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.PathParser
+import app.blot.core.model.NoteTitle
 import app.blot.ui.editor.ExportFormat
 import app.blot.ui.theme.InkColors
 import app.blot.ui.theme.ThemeSetting
@@ -53,7 +54,7 @@ class FakeLibrary(
         val s = state
         val q = s.query.trim()
         val inFolder = samples.filter { s.selectedFolder == null || it.folder == s.selectedFolder }
-        val shown = inFolder.filter { q.isEmpty() || it.title.contains(q, ignoreCase = true) }
+        val shown = inFolder.filter { q.isEmpty() || NoteTitle.display(it.title).contains(q, ignoreCase = true) }
         val counts = samples.groupingBy { it.folder }.eachCount()
         val extra = mapOf("cc" to 6, "jn" to 7, "sk" to 2)
         val folders = listOf(
@@ -73,7 +74,7 @@ class FakeLibrary(
                     3 -> ink.green
                     else -> ink.black
                 }
-                NoteCard(it.id, it.title, it.date, it.kind, it.pages, thumbnail(it.scribble, colour))
+                NoteCard(it.id, NoteTitle.display(it.title), it.date, it.kind, it.pages, thumbnail(it.scribble, colour), untitled = it.title.isBlank())
             },
         )
     }
@@ -103,12 +104,20 @@ class FakeLibrary(
 
     override fun newNote(kind: PageKind) {
         val folder = state.selectedFolder ?: "ds"
-        samples = listOf(Sample("n${nextId++}", folder, "Untitled", "Today", kind, 1, 0, "")) + samples
+        samples = listOf(Sample("n${nextId++}", folder, "", "Today", kind, 1, 0, "")) + samples
         update { copy(newNoteOpen = false) }
         refresh()
     }
 
     override fun setCardMenu(id: String?) = update { copy(cardMenu = id, newNoteOpen = false) }
+    override fun setRenaming(id: String?) = update { copy(renaming = id, cardMenu = null, newNoteOpen = false) }
+
+    override fun renameNote(id: String, title: String) {
+        samples = samples.map { if (it.id == id) it.copy(title = NoteTitle.clean(title)) else it }
+        update { copy(renaming = null) }
+        refresh()
+    }
+
     override fun exportNote(id: String, format: ExportFormat) {}
     override fun shareNote(id: String) {}
 

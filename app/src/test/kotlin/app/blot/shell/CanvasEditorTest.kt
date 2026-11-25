@@ -102,18 +102,49 @@ class CanvasEditorTest {
 
     @Test
     fun undoRedoAndZoomFollowTheCanvas() {
-        controller.edit { it.copy(title = "x") }
+        controller.edit { it.copy(page = PageSetup.Pages.a4()) }
         assertTrue(editor.uiState.canUndo)
         editor.undo()
-        assertEquals("", controller.note.value.title)
+        assertEquals(PageSetup.Infinite, controller.note.value.page)
         assertTrue(editor.uiState.canRedo)
         editor.redo()
-        assertEquals("x", controller.note.value.title)
+        assertEquals(PageSetup.Pages.a4(), controller.note.value.page)
 
         controller.zoomBy(2f, 0f, 0f)
         assertEquals(200, editor.uiState.zoomPercent)
         editor.resetZoom()
         assertEquals(100, editor.uiState.zoomPercent)
+    }
+
+    @Test
+    fun titleIsSavedButNotUndone() {
+        val created = controller.note.value.modified
+        controller.edit { it.copy(page = PageSetup.Pages.a4()) }
+        editor.setTitleEditing(true)
+        editor.setTitle("  Raft\nnotes ")
+        assertEquals("Raft notes", controller.note.value.title)
+        assertEquals("Raft notes", editor.uiState.noteTitle)
+        assertFalse(editor.uiState.titleEditing)
+        assertTrue(controller.note.value.modified >= created)
+        // Undo takes back the page change only; the title is not a step.
+        editor.undo()
+        assertEquals(PageSetup.Infinite, controller.note.value.page)
+        assertEquals("Raft notes", controller.note.value.title)
+        assertFalse(editor.uiState.canUndo)
+        editor.redo()
+        assertEquals("Raft notes", controller.note.value.title)
+        editor.setTitle("")
+        assertEquals("", controller.note.value.title)
+        assertEquals("", editor.uiState.noteTitle)
+    }
+
+    @Test
+    fun cancellingTheTitleEditKeepsTheTitle() {
+        editor.setTitle("Raft")
+        editor.setTitleEditing(true)
+        editor.setTitleEditing(false)
+        assertEquals("Raft", controller.note.value.title)
+        assertFalse(editor.uiState.titleEditing)
     }
 
     @Test

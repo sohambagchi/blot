@@ -53,7 +53,7 @@ class ExportLauncher(
                 outcome.fold(
                     { file ->
                         try {
-                            activity.startActivity(ExportFiles.shareIntent(activity, file, options.format, note.title.ifBlank { file.nameWithoutExtension }))
+                            activity.startActivity(ExportFiles.shareIntent(activity, file, options.format, ExportFiles.shareTitle(note)))
                             onResult(Result.Shared(file))
                         } catch (e: ActivityNotFoundException) {
                             onResult(Result.Failed(e))
@@ -68,7 +68,7 @@ class ExportLauncher(
     /** Asks where to save, then exports [note] there. */
     fun saveToFolder(note: Note, assets: ExportAssets, options: ExportOptions) {
         pending = Pending(note, assets, options)
-        savers.getValue(options.format).launch(ExportFiles.fileName(note.title, options.format))
+        savers.getValue(options.format).launch(ExportFiles.fileName(note, options.format))
     }
 
     private fun picked(uri: Uri?) {

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.blot.core.model.Argb
+import app.blot.core.model.NoteTitle
 import app.blot.ui.library.PageKind
 
 /**
@@ -72,4 +73,6 @@ open class InMemoryEditor(
     override fun addPage() = update { copy(pageCount = pageCount + 1) }
     override fun removePage() = update { copy(pageCount = (pageCount - 1).coerceAtLeast(1)) }
     override fun dismissMessage() = update { copy(message = null) }
+    override fun setTitleEditing(editing: Boolean) = update { copy(titleEditing = editing) }
+    override fun setTitle(title: String) = update { copy(noteTitle = NoteTitle.clean(title), titleEditing = false) }
 }
