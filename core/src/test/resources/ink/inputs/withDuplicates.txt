@@ -1,0 +1,19 @@
+# perfect-freehand v1.2.3 src/test/inputs.json "withDuplicates" (MIT, Stephen Ruiz Ltd); x y [pressure], as floats
+0 0
+0 0
+0 0
+0 0
+0 0
+10 10
+10 10
+10 10
+10 10
+10 10
+100 100
+100 100
+100 100
+100 100
+100 100
+100 100
+0 0
+0 0

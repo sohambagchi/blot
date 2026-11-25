@@ -1,0 +1,2 @@
+# perfect-freehand v1.2.3 src/test/inputs.json "onePoint" (MIT, Stephen Ruiz Ltd); x y [pressure], as floats
+464.9100036621094 286.510009765625

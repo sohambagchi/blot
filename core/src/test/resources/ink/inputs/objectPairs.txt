@@ -1,0 +1,6 @@
+# perfect-freehand v1.2.3 src/test/inputs.json "objectPairs" (MIT, Stephen Ruiz Ltd); x y [pressure], as floats
+0 0 0.5
+10 0 0.5
+20 0 0.5
+25 5 0.5
+30 5 0.5
