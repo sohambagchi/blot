@@ -79,7 +79,10 @@ data class ExportInfo(
  */
 @Immutable
 data class EditorUiState(
+    /** The note's title; empty for an untitled note, which shows as "Untitled". */
     val noteTitle: String = "",
+    /** The title is being edited in place, in the back pill or the phone's top bar. */
+    val titleEditing: Boolean = false,
     val folderName: String = "",
     /** Page layout as shown on the bottom-right chip, e.g. "Infinite canvas" or "A4". */
     val pageLabel: String = "Infinite canvas",

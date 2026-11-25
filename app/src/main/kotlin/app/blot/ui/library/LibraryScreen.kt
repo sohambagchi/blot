@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -137,6 +138,7 @@ fun Library(state: LibraryUiState, actions: LibraryActions, modifier: Modifier =
             }
             Notice(message, dismiss, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
         }
+        state.renaming?.let { id -> state.notes.firstOrNull { it.id == id } }?.let { note -> key(note.id) { RenameDialog(note, actions) } }
         if (state.settingsOpen) {
             SettingsDialog(state.settings, state.storage, actions) { actions.setSettingsOpen(false) }
         }

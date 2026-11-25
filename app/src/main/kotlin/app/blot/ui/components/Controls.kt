@@ -52,12 +52,12 @@ import app.blot.ui.theme.colors
 fun Modifier.boxShadow(shape: Shape, elevation: Elevation, color: Color): Modifier =
     dropShadow(shape, Shadow(radius = elevation.blur, color = color, offset = DpOffset(0.dp, elevation.offsetY)))
 
-/** The design's floating surface: shadow, surface fill and a 1 dp border. */
+/** The design's floating surface: shadow, surface fill and a 1 dp border. It is a [chromeSurface]. */
 @Composable
 fun Modifier.floatingSurface(shape: Shape, elevation: Elevation? = Elevation.Bar, fill: Color = colors.surface): Modifier {
     val c = colors
     val shadowed = if (elevation == null) this else boxShadow(shape, elevation, if (elevation.strong) c.shadowStrong else c.shadow)
-    return shadowed.clip(shape).background(fill).border(1.dp, c.border, shape)
+    return shadowed.chromeSurface(shape).clip(shape).background(fill).border(1.dp, c.border, shape)
 }
 
 /** A square icon button as used across the design (44 dp touch target by default). */

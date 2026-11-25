@@ -13,8 +13,8 @@ import androidx.compose.ui.viewinterop.AndroidView
  * The inking canvas for [controller]'s note.
  *
  * While a stroke is drawn, the low-latency ink layer sits above the whole window over this
- * composable's bounds, so Compose content overlapping the canvas is hidden until pen-up; keep
- * toolbars beside the canvas rather than over it.
+ * composable's bounds, so Compose content overlapping the canvas would be drawn over until
+ * pen-up. Report such content in [CanvasController.inkExclusions] to keep the layer clear there.
  *
  * @param textBoxRenderer draws text boxes; null keeps the plain-text fallback.
  * @param assetImages supplies images; null draws placeholders.

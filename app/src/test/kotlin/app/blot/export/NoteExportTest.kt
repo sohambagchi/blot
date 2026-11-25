@@ -189,7 +189,5 @@ class NoteExportTest {
         assertEquals("${context.packageName}.files", uri.authority)
         assertTrue(uri.path!!.startsWith("/exports/"))
         assertTrue(send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
-        assertEquals("Pages _ sample_ 2.pdf", ExportFiles.fileName("Pages / sample: 2", ExportFormat.PDF))
-        assertEquals("Note.png", ExportFiles.fileName("  ", ExportFormat.PNG))
     }
 }

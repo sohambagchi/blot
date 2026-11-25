@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,15 +30,16 @@ import app.blot.ui.theme.Radii
  */
 @Composable
 fun PhoneEditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier.fillMaxSize()) {
+    val titleEdit = remember { TitleEdit() }
+    Box(modifier.fillMaxSize().commitTitleOnTapElsewhere(state.titleEditing, titleEdit)) {
         content()
-        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { PhoneBars(state, actions) }
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { PhoneBars(state, actions, titleEdit) }
         if (state.exportOpen) ExportDialog(state, actions)
     }
 }
 
 @Composable
-private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions) {
+private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions, edit: TitleEdit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -49,7 +51,7 @@ private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         IconButton(BlotIcons.Back, "Back to library", actions::back)
-        TitleBlock(state, Modifier.weight(1f))
+        TitleBlock(state, actions, edit, Modifier.weight(1f))
         IconButton(BlotIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp)
     }
     val pan = state.tool == Tool.Pen && state.penMode == PenMode.Hand

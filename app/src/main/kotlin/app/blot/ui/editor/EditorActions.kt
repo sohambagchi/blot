@@ -54,4 +54,10 @@ interface EditorActions {
 
     /** The notice in [EditorUiState.message] was shown long enough, or tapped. */
     fun dismissMessage() {}
+
+    /** The title was tapped (true), or its edit was cancelled (false) and the title stays as it was. */
+    fun setTitleEditing(editing: Boolean) {}
+
+    /** The title edit was committed with [title] as typed; it ends the edit. */
+    fun setTitle(title: String) {}
 }

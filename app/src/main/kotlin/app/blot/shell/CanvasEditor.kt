@@ -86,6 +86,12 @@ class CanvasEditor(
     /** The note changed (an edit, undo or redo); call for every new value of [CanvasController.note]. */
     fun noteChanged(note: Note) {
         page = note.page
+        if (note.title != state.noteTitle) state = state.copy(noteTitle = note.title)
+    }
+
+    override fun setTitle(title: String) {
+        super.setTitle(title)
+        controller.setTitle(state.noteTitle)
     }
 
     fun showMessage(text: String) {

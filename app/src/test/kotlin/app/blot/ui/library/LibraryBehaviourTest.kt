@@ -7,6 +7,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.dp
 import app.blot.ui.LAND
@@ -79,5 +85,49 @@ class LibraryBehaviourTest {
         assertEquals(ThemeSetting.Dark, fake.state.settings.theme)
         compose.onNodeWithText("Forget").performClick()
         compose.onNodeWithText("Choose folder…").assertExists()
+    }
+
+    @Test
+    fun cardMenuRenamesANoteAndSearchFindsTheNewTitle() {
+        val fake = FakeLibrary()
+        show(fake)
+        compose.onNodeWithContentDescription("More actions for CRDTs").performClick()
+        compose.onNodeWithText("Rename").performClick()
+        assertEquals("crdt", fake.state.renaming)
+        compose.onNodeWithContentDescription("Note title").assertIsFocused()
+        compose.onNodeWithContentDescription("Note title").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("CRDTs")))
+        compose.onNodeWithContentDescription("Note title").performTextReplacement("  Conflict-free\nreplicated types ")
+        compose.onNodeWithText("Rename").performClick()
+        compose.waitForIdle()
+        assertEquals(null, fake.state.renaming)
+        assertEquals("Conflict-free replicated types", fake.state.notes.single { it.id == "crdt" }.title)
+        compose.onNodeWithContentDescription("Search notes").performTextReplacement("replicated")
+        compose.waitForIdle()
+        assertEquals(listOf("crdt"), fake.state.notes.map { it.id })
+    }
+
+    @Test
+    fun renamingToBlankLeavesItUntitledAndCancelKeepsTheTitle() {
+        val fake = FakeLibrary()
+        show(fake)
+        compose.onNodeWithContentDescription("More actions for Raft").performClick()
+        compose.onNodeWithText("Rename").performClick()
+        compose.onNodeWithContentDescription("Note title").performTextReplacement("Paxos")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertEquals("Raft", fake.state.notes.single { it.id == "raft" }.title)
+
+        compose.onNodeWithContentDescription("More actions for Raft").performClick()
+        compose.onNodeWithText("Rename").performClick()
+        compose.onNodeWithContentDescription("Note title").performTextReplacement("   ")
+        compose.onNodeWithContentDescription("Note title").performImeAction()
+        compose.waitForIdle()
+        val card = fake.state.notes.single { it.id == "raft" }
+        assertEquals("Untitled", card.title)
+        assertTrue(card.untitled)
+        // Reopened, an untitled note's field is empty, with "Untitled" as its placeholder.
+        compose.onNodeWithContentDescription("More actions for Untitled").performClick()
+        compose.onNodeWithText("Rename").performClick()
+        compose.onNodeWithContentDescription("Note title").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
     }
 }

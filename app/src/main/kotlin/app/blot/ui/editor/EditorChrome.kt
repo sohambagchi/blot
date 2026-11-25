@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import app.blot.core.model.NoteTitle
 import app.blot.ui.components.EllipsisText
 import app.blot.ui.components.IconButton
 import app.blot.ui.components.Rule
@@ -88,7 +89,8 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
     val density = LocalDensity.current.density
     val obstacles = remember { mutableStateMapOf<String, Rect>() }
     val record = { key: String -> Modifier.onGloballyPositioned { obstacles[key] = it.boundsInParent().let { r -> Rect(r.left / density, r.top / density, r.right / density, r.bottom / density) } } }
-    Box(modifier.fillMaxSize()) {
+    val titleEdit = remember { TitleEdit() }
+    Box(modifier.fillMaxSize().commitTitleOnTapElsewhere(state.titleEditing, titleEdit)) {
         content()
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val full = !state.toolbarCollapsed
@@ -103,7 +105,7 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 IconButton(BlotIcons.Back, "Back to library", actions::back)
-                if (full) TitleBlock(state, Modifier.widthIn(max = 280.dp))
+                if (full) TitleBlock(state, actions, titleEdit, Modifier.widthIn(max = 280.dp))
             }
             Row(
                 Modifier
@@ -151,13 +153,16 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
     }
 }
 
-/** Title over folder name, as in the back pill and the phone's top bar. */
+/** Title over folder name, as in the back pill and the phone's top bar. Tapping it edits the title. */
 @Composable
-internal fun TitleBlock(state: EditorUiState, modifier: Modifier = Modifier) {
+internal fun TitleBlock(state: EditorUiState, actions: EditorActions, edit: TitleEdit, modifier: Modifier = Modifier) {
     val c = colors
     val tight = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
-    Column(modifier) {
-        EllipsisText(state.noteTitle, BlotType.bodyStrong.copy(color = c.text, lineHeight = 1.2.em, lineHeightStyle = tight))
+    val style = BlotType.bodyStrong.copy(color = c.text, lineHeight = 1.2.em, lineHeightStyle = tight)
+    val tap = if (state.titleEditing) Modifier else Modifier.clickable(role = Role.Button, onClickLabel = "Rename") { actions.setTitleEditing(true) }
+    Column(modifier.then(tap)) {
+        if (state.titleEditing) TitleField(state.noteTitle, actions, edit, style, Modifier.widthIn(min = 180.dp))
+        else EllipsisText(NoteTitle.display(state.noteTitle), style)
         if (state.folderName.isNotEmpty()) {
             EllipsisText(state.folderName, BlotType.caption.copy(color = c.muted, lineHeight = 1.2.em, lineHeightStyle = tight))
         }

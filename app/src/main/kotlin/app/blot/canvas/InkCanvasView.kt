@@ -33,9 +33,10 @@ import kotlin.math.roundToInt
  * The inking canvas: a [SceneView] that draws the note at the controller's viewport, and, once
  * the window has drawn its first frame, a `LowLatencyCanvasView` underneath whose front buffer
  * shows in-progress ink. That buffer's `SurfaceView` is Z-ordered above the window, so while a
- * stroke is drawn it covers this view (and anything overlapping it); between strokes it is moved
- * off screen and the scene view shows. If the low-latency view can't be created, the scene view
- * draws in-progress ink itself.
+ * stroke is drawn it covers this view and anything overlapping it, except where
+ * [CanvasController.inkExclusions] keep it transparent; between strokes it is moved off screen
+ * and the scene view shows. If the low-latency view can't be created, the scene view draws
+ * in-progress ink itself.
  *
  * Host it with [NoteCanvas]. One view per [CanvasController].
  */
@@ -145,6 +146,13 @@ class InkCanvasView(
         viewportChangedSinceStroke = true
         sceneChanged()
         scheduleBufferClear()
+    }
+
+    override fun onInkExclusionsChanged() {
+        val llcv = lowLatencyView ?: return
+        // Mid-stroke, redraw so newly covered areas are wiped at once. Between strokes the buffer's
+        // last stroke was clipped to the old areas, so it must not show again.
+        if (builder != null) llcv.renderFrontBufferedLayer() else scheduleBufferClear()
     }
 
     override fun onAppearanceChanged() {
@@ -431,6 +439,7 @@ class InkCanvasView(
     private inner class FrontInk : LowLatencyCanvasView.Callback {
         val renderer = SceneRenderer(controller.outlineCache, onImageLoaded = { post { onAppearanceChanged() } })
         private val painter = LiveInkPainter()
+        private val clip = InkClip()
         val queue = ConcurrentLinkedQueue<LiveSegment>()
 
         @Volatile private var scene: SceneState? = null
@@ -447,6 +456,7 @@ class InkCanvasView(
         private var renderedContent: FrontBufferContent? = null
         private var seenSerial = -1
         private val strokeSegments = ArrayList<LiveSegment>()
+        private var clearedExclusions: List<InkExclusion>? = null
 
         /** UI thread: publishes the scene and ink colour for a new stroke. */
         fun beginStroke(s: SceneState, color: Int, downNanos: Long, receivedNanos: Long, afterPan: Boolean) {
@@ -489,6 +499,8 @@ class InkCanvasView(
                 strokeSegments.clear()
             }
             var sceneNanos = -1L
+            val exclusions = controller.inkExclusions
+            var sceneDrawn = false
             when (s.content) {
                 FrontBufferContent.SCENE -> if (forced || renderedGeneration != s.generation || renderedContent != s.content) {
                     val t0 = System.nanoTime()
@@ -496,18 +508,25 @@ class InkCanvasView(
                     sceneNanos = System.nanoTime() - t0
                     renderedGeneration = s.generation
                     renderedContent = s.content
+                    sceneDrawn = true
                     // A redraw mid-stroke must bring back the ink drawn so far.
-                    if (!newStroke) drawSegments(canvas, s, strokeSegments)
+                    if (!newStroke) drawSegments(canvas, s, strokeSegments, exclusions)
                 }
                 FrontBufferContent.INK_ONLY -> if (forced || clearInk.getAndSet(false) || renderedContent != s.content) {
                     canvas.drawColor(0, PorterDuff.Mode.CLEAR)
                     renderedContent = s.content
                     renderedGeneration = -1
-                    if (!newStroke) drawSegments(canvas, s, strokeSegments)
+                    if (!newStroke) drawSegments(canvas, s, strokeSegments, exclusions)
                 }
             }
             clearInk.set(false)
+            // The window, chrome included, shows through where the buffer is transparent.
+            if (sceneDrawn || exclusions !== clearedExclusions) {
+                clip.clear(canvas, exclusions)
+                clearedExclusions = exclusions
+            }
             canvas.save()
+            clip.clipOut(canvas, exclusions)
             canvas.translate(s.viewport.offsetX, s.viewport.offsetY)
             canvas.scale(s.viewport.scale, s.viewport.scale)
             val color = inkColor
@@ -521,8 +540,9 @@ class InkCanvasView(
             if (down >= 0) reportFirstInk(down, received, System.nanoTime(), sceneNanos, afterPan)
         }
 
-        private fun drawSegments(canvas: Canvas, s: SceneState, segments: List<LiveSegment>) {
+        private fun drawSegments(canvas: Canvas, s: SceneState, segments: List<LiveSegment>, exclusions: List<InkExclusion>) {
             canvas.save()
+            clip.clipOut(canvas, exclusions)
             canvas.translate(s.viewport.offsetX, s.viewport.offsetY)
             canvas.scale(s.viewport.scale, s.viewport.scale)
             for (seg in segments) painter.draw(canvas, seg, inkColor)

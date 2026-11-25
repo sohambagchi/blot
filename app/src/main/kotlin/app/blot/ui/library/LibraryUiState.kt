@@ -20,6 +20,8 @@ data class NoteCard(
     /** Page count; ignored for [PageKind.Infinite]. */
     val pages: Int = 1,
     val thumbnail: ImageBitmap? = null,
+    /** The note has no title; [title] then reads "Untitled". */
+    val untitled: Boolean = false,
 )
 
 /** A folder in the left column; [id] null is "All notes". */
@@ -47,6 +49,8 @@ data class LibraryUiState(
     val query: String = "",
     /** The note whose card menu is open. */
     val cardMenu: String? = null,
+    /** The note whose rename dialog is open. */
+    val renaming: String? = null,
     val newNoteOpen: Boolean = false,
     val settingsOpen: Boolean = false,
     val settings: SettingsUiState = SettingsUiState(),
@@ -67,6 +71,10 @@ interface LibraryActions : SettingsActions {
     fun newNote(kind: PageKind)
     /** Opens the card menu of note [id], or closes it when null. */
     fun setCardMenu(id: String?)
+    /** Opens the rename dialog for note [id], or closes it when null. */
+    fun setRenaming(id: String?)
+    /** Renames note [id] to [title] as typed; blank leaves it untitled. Closes the dialog. */
+    fun renameNote(id: String, title: String)
     fun exportNote(id: String, format: ExportFormat)
     fun shareNote(id: String)
     fun deleteNote(id: String)

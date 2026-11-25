@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import app.blot.core.model.NoteTitle
 import app.blot.ui.components.IconButton
 import app.blot.ui.components.ModalCard
 import app.blot.ui.components.OutlineButton
@@ -73,7 +74,7 @@ internal fun ExportDialog(state: EditorUiState, actions: EditorActions) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     BasicText("Export and share", Modifier.semantics { heading() }, style = BlotType.title.copy(color = c.text))
                     BasicText(
-                        listOf(state.noteTitle, state.pageLabel).filter { it.isNotEmpty() }.joinToString(" · "),
+                        listOf(NoteTitle.display(state.noteTitle), state.pageLabel).filter { it.isNotEmpty() }.joinToString(" · "),
                         style = BlotType.caption.copy(color = c.muted),
                     )
                 }

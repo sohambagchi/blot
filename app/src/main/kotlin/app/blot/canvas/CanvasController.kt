@@ -154,6 +154,21 @@ class CanvasController(initial: Note) {
     var viewport by mutableStateOf(Viewport())
         private set
 
+    @Volatile private var _inkExclusions: List<InkExclusion> = emptyList()
+
+    /**
+     * Where chrome covers the canvas, in the canvas view's pixels: in-progress ink is not drawn
+     * there, as the committed stroke will be hidden there too. Set from the UI thread; the ink
+     * render thread reads it.
+     */
+    var inkExclusions: List<InkExclusion>
+        get() = _inkExclusions
+        set(v) {
+            if (v == _inkExclusions) return
+            _inkExclusions = v
+            listener?.onInkExclusionsChanged()
+        }
+
     /** Latency and frame-time measurements from the canvas view. */
     val stats = CanvasStats()
 
@@ -176,6 +191,9 @@ class CanvasController(initial: Note) {
 
         /** [editingText] changed: show, move or hide the text editor. */
         fun onTextEditChanged() {}
+
+        /** [inkExclusions] changed. */
+        fun onInkExclusionsChanged() {}
     }
 
     /** Replaces the note, clears the history and fits the view to it. Drops any text edit unsaved. */
@@ -202,19 +220,29 @@ class CanvasController(initial: Note) {
         setNote(touch(after))
     }
 
-    /** Steps back one edit. A text edit in progress is finished first, so it is the step undone. */
+    /** Steps back one edit. A text edit in progress is finished first, so it is the step undone. The title stays. */
     fun undo() {
         finishTextEdit()
         gestures.cancel()
         val n = history.undo(_note.value) ?: return
-        setNote(n)
+        setNote(n.copy(title = _note.value.title))
     }
 
+    /** Steps forward one edit. The title stays. */
     fun redo() {
         finishTextEdit()
         gestures.cancel()
         val n = history.redo(_note.value) ?: return
-        setNote(n)
+        setNote(n.copy(title = _note.value.title))
+    }
+
+    /**
+     * Renames the note to [title] (already cleaned, "" for untitled). Not an undo step: undo and
+     * redo keep the current title. Updates the modified time like any saved change.
+     */
+    fun setTitle(title: String) {
+        if (title == _note.value.title) return
+        setNote(touch(_note.value.copy(title = title)))
     }
 
     // Selection commands. Each edit is one undo step; selection itself is not in the history.
@@ -496,7 +524,7 @@ class CanvasController(initial: Note) {
     internal fun cancelErase() {
         val before = gestureStart ?: return
         gestureStart = null
-        if (before != _note.value) setNote(before)
+        if (before != _note.value) setNote(before.copy(title = _note.value.title))
     }
 
     private fun touch(n: Note): Note = n.copy(modified = Instant.now().truncatedTo(ChronoUnit.MILLIS))

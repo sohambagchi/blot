@@ -36,6 +36,8 @@ data class SessionSetup(
     val message: String? = null,
     /** Edits are not saved, e.g. because `note.json` is from a newer app version. */
     val readOnly: Boolean = false,
+    /** Opens with the title field focused, as for a new note. */
+    val editTitle: Boolean = false,
 )
 
 /**
@@ -77,7 +79,8 @@ class EditorSession(
     val editor = CanvasEditor(
         controller,
         EditorUiState(
-            noteTitle = note.title.ifBlank { UNTITLED },
+            noteTitle = note.title,
+            titleEditing = setup.editTitle,
             folderName = setup.folderName,
             penOnly = setup.penOnly,
             message = setup.message,
@@ -174,7 +177,6 @@ class EditorSession(
 
     companion object {
         private const val TAG = "EditorSession"
-        const val UNTITLED = "Untitled"
         private const val PREVIEW_WIDTH = 960
         private const val PREVIEW_HEIGHT = 540
 

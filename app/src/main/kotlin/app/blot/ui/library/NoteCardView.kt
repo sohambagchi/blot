@@ -155,7 +155,7 @@ internal fun PageGlyph(kind: PageKind, tint: Color, small: Boolean) {
     }
 }
 
-/** The card menu: export as PNG, PDF or SVG, share, delete. */
+/** The card menu: rename, export as PNG, PDF or SVG, share, delete. */
 @Composable
 internal fun CardMenu(id: String, actions: LibraryActions, modifier: Modifier = Modifier) {
     val c = colors
@@ -170,6 +170,8 @@ internal fun CardMenu(id: String, actions: LibraryActions, modifier: Modifier = 
             actions.setCardMenu(null)
             f()
         }
+        MenuRow(BlotIcons.Rename, "Rename", c.text) { actions.setRenaming(id) }
+        Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
         MenuRow(BlotIcons.ExportPng, "Export PNG", c.text, done { actions.exportNote(id, ExportFormat.Png) })
         MenuRow(BlotIcons.ExportPdf, "Export PDF", c.text, done { actions.exportNote(id, ExportFormat.Pdf) })
         MenuRow(BlotIcons.ExportSvg, "Export SVG", c.text, done { actions.exportNote(id, ExportFormat.Svg) })

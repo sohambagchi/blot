@@ -19,6 +19,7 @@ import app.blot.canvas.SceneRenderer
 import app.blot.core.FORMAT_VERSION
 import app.blot.core.export.ExportAssets
 import app.blot.core.model.Note
+import app.blot.core.model.NoteTitle
 import app.blot.core.model.format.NoteFormatException
 import app.blot.core.model.format.NoteJson
 import app.blot.core.store.NoteId
@@ -53,6 +54,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -187,18 +189,18 @@ class AppModel(
         refresh()
     }
 
-    private fun openSession(store: NoteStore, id: NoteId, note: Note, message: String?, readOnly: Boolean) {
+    private fun openSession(store: NoteStore, id: NoteId, note: Note, message: String?, readOnly: Boolean, editTitle: Boolean = false) {
         val path = (library.storage as? StorageState.Ready)?.path.orEmpty()
         val s = EditorSession(
             id, note,
-            SessionSetup(dark, settings.penOnly, settings.swapSideButtons, settings.frontBuffer, path.substringAfterLast('/'), message, readOnly),
+            SessionSetup(dark, settings.penOnly, settings.swapSideButtons, settings.frontBuffer, path.substringAfterLast('/'), message, readOnly, editTitle),
             store, ioScope, main, thumbnails, exporter,
             onBack = ::closeEditor,
             onPenOnlyChanged = { settings.penOnly = it },
             onSaveFailed = { if (it is SecurityException) updateFolder(folder.state()) },
             screenPageSize = { screenSizeDp() },
         )
-        library = library.copy(cardMenu = null, newNoteOpen = false, settingsOpen = false)
+        library = library.copy(cardMenu = null, renaming = null, newNoteOpen = false, settingsOpen = false)
         screen = Screen.Editor(s)
     }
 
@@ -252,7 +254,7 @@ class AppModel(
         val bitmap = file?.let { f ->
             decoded.get(f.name) ?: ThumbnailCache.decode(f)?.asImageBitmap()?.also { decoded.put(f.name, it) }
         }
-        val title = s.title.ifBlank { EditorSession.UNTITLED }
+        val title = NoteTitle.display(s.title)
         return NoteCard(
             id = s.id.value,
             title = if (s.damaged) "$title (unreadable)" else title,
@@ -260,6 +262,7 @@ class AppModel(
             kind = info?.kind ?: PageKind.Infinite,
             pages = info?.pages ?: 1,
             thumbnail = bitmap,
+            untitled = s.title.isBlank(),
         )
     }
 
@@ -304,7 +307,7 @@ class AppModel(
                 val (store, id) = withStore {
                     it to it.create(NoteJson.encode(note).encodeToByteArray(), NoteMeta(note.title, note.modified.toEpochMilli()))
                 }
-                openSession(store, id, note, null, false)
+                openSession(store, id, note, null, false, editTitle = true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -325,6 +328,24 @@ class AppModel(
                 throw e
             } catch (e: Exception) {
                 storageFailed(e, "Couldn't delete the note")
+            }
+            refresh()
+        }
+    }
+
+    override fun setRenaming(id: String?) {
+        library = library.copy(renaming = id, cardMenu = null, newNoteOpen = false)
+    }
+
+    override fun renameNote(id: String, title: String) {
+        library = library.copy(renaming = null)
+        main.launch {
+            try {
+                withStore { renameInStore(it, NoteId(id), title) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                storageFailed(e, "Couldn't rename the note")
             }
             refresh()
         }
@@ -495,6 +516,18 @@ class AppModel(
         private fun summarize(bytes: ByteArray): NoteMeta {
             val n = NoteJson.decode(bytes.decodeToString())
             return NoteMeta(n.title, n.modified.toEpochMilli())
+        }
+
+        /**
+         * Renames note [id] in [store] to [title], cleaned as the editor does, as a save: the
+         * modified time moves to [now] and the library index takes the new title. Blocking.
+         */
+        fun renameInStore(store: NoteStore, id: NoteId, title: String, now: Instant = Instant.now()) {
+            val note = store.readNote(id) { NoteJson.decode(it.decodeToString()) }.value
+            val clean = NoteTitle.clean(title)
+            if (clean == note.title) return
+            val renamed = note.copy(title = clean, modified = now.truncatedTo(ChronoUnit.MILLIS))
+            store.writeNote(id, NoteJson.encode(renamed).encodeToByteArray(), NoteMeta(renamed.title, renamed.modified.toEpochMilli()))
         }
 
         /** Whether `note.json` [text] declares a format newer than this app reads. */
