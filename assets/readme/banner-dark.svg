@@ -13,8 +13,8 @@
 <text x="430" y="168" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-2" fill="#ECEAE6">Blot</text>
 <text x="434" y="220" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="30" fill="#A3A09A">Pen notes for Android</text>
 <g fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-<path d="M800 235C860 190 900 270 960 225S1040 190 1090 215" stroke="#FF6B6B"/>
-<path d="M830 120C880 70 930 150 985 100S1070 60 1120 95" stroke="#6B9BFF"/>
-<path d="M1030 270C1070 245 1110 285 1150 255" stroke="#4CC585"/>
+<path d="M800 235C860 190 900 270 960 225S1040 190 1090 215" stroke="#FF837B"/>
+<path d="M830 120C880 70 930 150 985 100S1070 60 1120 95" stroke="#76A6FF"/>
+<path d="M1030 270C1070 245 1110 285 1150 255" stroke="#62C886"/>
 </g>
 </svg>
