@@ -418,8 +418,8 @@ internal class MTMathListBuilder(str: String) {
         }
 
         when (command) {
-            "frac" -> {
-                // A fraction command has 2 arguments
+            "frac", "dfrac", "tfrac" -> {
+                // A fraction command has 2 arguments. \dfrac and \tfrac are \frac here: the style follows the context.
                 val frac = MTFraction()
                 frac.numerator = this.buildInternal(true)
                 frac.denominator = this.buildInternal(true)

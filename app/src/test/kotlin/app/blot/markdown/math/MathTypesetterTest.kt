@@ -53,6 +53,7 @@ class MathTypesetterTest {
     fun fractionIsTallerThanASymbol() {
         val x = display("x")
         val frac = display("\\frac{a}{b}")
+        assertEquals(frac.width, display("\\dfrac{a}{b}").width, 0.01f)
         assertTrue(height(frac) > 2 * height(x))
         assertTrue(frac.descent > x.descent)
         // The bar sits on the maths axis: as much fraction above it as below.
