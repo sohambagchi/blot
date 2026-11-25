@@ -1,7 +1,10 @@
 package app.blot.core.model.format
 
 import app.blot.core.FORMAT_VERSION
+import app.blot.core.model.Line
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Note
+import app.blot.core.model.Shape
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -25,11 +28,22 @@ object NoteJson {
         prettyPrintIndent = "  "
     }
 
-    /** The `note.json` text for [note], with `"format"` set to [FORMAT_VERSION]. */
+    /**
+     * The lowest format version that holds [note]: 2 when it has a shape kind or line route that
+     * format 1 lacks, otherwise 1, so apps that read only format 1 can still open it.
+     */
+    fun formatOf(note: Note): Int {
+        val needs2 = note.elements.any {
+            (it is Shape && !it.kind.isFormat1) || (it is Line && it.route != LineRoute.STRAIGHT)
+        }
+        return if (needs2) 2 else 1
+    }
+
+    /** The `note.json` text for [note], with `"format"` set to [formatOf] it. */
     fun encode(note: Note): String {
         val body = json.encodeToJsonElement(Note.serializer(), note).jsonObject
         val file = buildJsonObject {
-            put("format", JsonPrimitive(FORMAT_VERSION))
+            put("format", JsonPrimitive(formatOf(note)))
             for ((k, v) in body) put(k, v)
         }
         return json.encodeToString(JsonObject.serializer(), file) + "\n"
