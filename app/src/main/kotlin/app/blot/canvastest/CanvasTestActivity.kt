@@ -53,6 +53,7 @@ import app.blot.canvas.Tool
 import app.blot.core.model.Argb
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
+import app.blot.core.model.LineRoute
 import app.blot.core.model.ShapeKind
 import app.blot.core.model.format.NoteJson
 import kotlinx.coroutines.Dispatchers
@@ -194,8 +195,8 @@ class CanvasTestActivity : ComponentActivity() {
                         }
                     }
                     Tool.SHAPE -> {
-                        Action(if (c.shapeKind == ShapeKind.RECTANGLE) "Rectangle" else "Ellipse", text) {
-                            c.shapeKind = if (c.shapeKind == ShapeKind.RECTANGLE) ShapeKind.ELLIPSE else ShapeKind.RECTANGLE
+                        Action(c.shapeKind.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }, text) {
+                            c.shapeKind = ShapeKind.entries[(c.shapeKind.ordinal + 1) % ShapeKind.entries.size]
                         }
                         Action("Fill: ${onOff(c.shapeFill != null)}", text) { c.shapeFill = if (c.shapeFill == null) Argb(FILL) else null }
                         Action("Square: ${onOff(c.constrainShapes)}", text) { c.constrainShapes = !c.constrainShapes }
@@ -203,6 +204,9 @@ class CanvasTestActivity : ComponentActivity() {
                     Tool.LINE -> {
                         Action("Arrows: ${c.lineArrows.name.lowercase()}", text) {
                             c.lineArrows = LineArrows.entries[(c.lineArrows.ordinal + 1) % LineArrows.entries.size]
+                        }
+                        Action("Route: ${c.lineRoute.name.lowercase()}", text) {
+                            c.lineRoute = LineRoute.entries[(c.lineRoute.ordinal + 1) % LineRoute.entries.size]
                         }
                         Action("Snap 15°: ${onOff(c.snapAngles)}", text) { c.snapAngles = !c.snapAngles }
                     }

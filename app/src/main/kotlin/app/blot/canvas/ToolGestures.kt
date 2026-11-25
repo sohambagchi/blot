@@ -1,6 +1,8 @@
 package app.blot.canvas
 
 import app.blot.core.edit.Angles
+import app.blot.core.geometry.CurveFit
+import app.blot.core.geometry.LineRoutes
 import app.blot.core.edit.Selection
 import app.blot.core.edit.SelectionEdits
 import app.blot.core.edit.Similarity
@@ -8,6 +10,7 @@ import app.blot.core.edit.Snap
 import app.blot.core.model.Arrowhead
 import app.blot.core.model.Element
 import app.blot.core.model.Line
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Point
 import app.blot.core.model.Rect
 import app.blot.core.model.Shape
@@ -96,7 +99,11 @@ internal class ToolGestures(private val c: CanvasController) {
         var turned = 0f
     }
     private class DrawShape(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
-    private class DrawLine(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
+    private class DrawLine(x0: Float, y0: Float, val id: String) : Gesture(x0, y0) {
+        /** The drag's samples, `x0, y0, …`, [count] points; a curve runs along them. */
+        var samples = floatArrayOf(x0, y0)
+        var count = 1
+    }
     private class PlaceText(x0: Float, y0: Float) : Gesture(x0, y0)
 
     /** What a pen-down on the selection lands on. */
@@ -232,7 +239,10 @@ internal class ToolGestures(private val c: CanvasController) {
             is DrawShape -> draft = if (isTap(g)) null else Shape(
                 g.id, c.shapeKind, Snap.dragRect(g.x0, g.y0, x, y, c.constrainShapes), c.color, c.width, c.shapeFill,
             )
-            is DrawLine -> draft = if (isTap(g)) null else line(g, x, y)
+            is DrawLine -> {
+                addSample(g, x, y)
+                draft = if (isTap(g)) null else line(g, x, y)
+            }
             is PlaceText -> Unit
         }
         c.overlayChanged()
@@ -246,16 +256,42 @@ internal class ToolGestures(private val c: CanvasController) {
 
     private fun turnOf(g: Rotate): Float = if (c.snapAngles) Snap.rotation(g.base, g.turned) else g.turned
 
+    private fun addSample(g: DrawLine, x: Float, y: Float) {
+        val n = g.count
+        if (hypot(x - g.samples[n * 2 - 2], y - g.samples[n * 2 - 1]) < dp(LINE_SAMPLE_STEP_DP)) return
+        if (g.samples.size < (n + 1) * 2) g.samples = g.samples.copyOf(g.samples.size * 2)
+        g.samples[n * 2] = x
+        g.samples[n * 2 + 1] = y
+        g.count = n + 1
+    }
+
     private fun line(g: DrawLine, x: Float, y: Float): Line {
-        val end = if (c.snapAngles) Snap.angle(g.x0, g.y0, x, y) else Point(x, y)
+        val route = c.lineRoute
+        val points = when (route) {
+            LineRoute.STRAIGHT -> listOf(Point(g.x0, g.y0), if (c.snapAngles) Snap.angle(g.x0, g.y0, x, y) else Point(x, y))
+            LineRoute.ELBOW -> {
+                // Snapping straightens an elbow dragged within half a step of level or plumb.
+                val snapped = if (c.snapAngles) Snap.angle(g.x0, g.y0, x, y) else null
+                val end = if (snapped != null && (snapped.x == g.x0 || snapped.y == g.y0)) snapped else Point(x, y)
+                LineRoutes.elbow(g.x0, g.y0, end.x, end.y)
+            }
+            LineRoute.CURVE -> {
+                val n = g.count
+                val last = n * 2 - 2
+                val xy = if (g.samples[last] == x && g.samples[last + 1] == y) g.samples.copyOf(n * 2)
+                else g.samples.copyOf(n * 2 + 2).also { it[n * 2] = x; it[n * 2 + 1] = y }
+                CurveFit.fit(xy, dp(CURVE_TOLERANCE_DP))
+            }
+        }
         val arrows = c.lineArrows
         return Line(
             g.id,
-            listOf(Point(g.x0, g.y0), end),
+            points,
             c.color,
             c.width,
             startArrow = if (arrows == LineArrows.BOTH) c.arrowhead else Arrowhead.NONE,
             endArrow = if (arrows == LineArrows.NONE) Arrowhead.NONE else c.arrowhead,
+            route = route,
         )
     }
 
@@ -359,6 +395,12 @@ internal class ToolGestures(private val c: CanvasController) {
 
         /** Lasso points closer than this to the last one (dp on screen) are skipped. */
         const val LASSO_STEP_DP = 2f
+
+        /** Line drag samples closer than this to the last one (dp on screen) are skipped. */
+        const val LINE_SAMPLE_STEP_DP = 2f
+
+        /** How far (dp on screen) a curve's simplified points may stray from the drag. */
+        const val CURVE_TOLERANCE_DP = 6f
 
         /** Scaling stops when the selection's longer side would be smaller than this, canvas units. */
         const val MIN_SCALED_SIZE = 4f

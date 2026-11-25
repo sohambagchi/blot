@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.IntSize
 import app.blot.canvas.CanvasController
 import app.blot.canvas.pagesBounds
 import app.blot.core.model.Argb
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Note
 import app.blot.core.model.Orientation
 import app.blot.core.model.PageSetup
@@ -111,6 +112,7 @@ class CanvasEditor(
         controller.selectMode = if (s.selectMode == SelectMode.Rectangle) CanvasSelectMode.RECTANGLE else CanvasSelectMode.LASSO
         controller.shapeKind = modelShape(s.shape)
         controller.lineArrows = lineArrows(s.line)
+        controller.lineRoute = lineRoute(s.line)
         controller.snapAngles = s.snapAngles
         controller.tool = canvasTool(s.tool, s.penMode)
     }
@@ -138,13 +140,11 @@ class CanvasEditor(
     override fun setShape(kind: ShapeKind) {
         super.setShape(kind)
         applyTool()
-        if (kind != ShapeKind.Rectangle && kind != ShapeKind.Ellipse) showMessage("Only rectangles and ellipses for now: drawing a rectangle")
     }
 
     override fun setLine(kind: LineKind) {
         super.setLine(kind)
         applyTool()
-        if (kind == LineKind.Elbow || kind == LineKind.Curve) showMessage("Elbow and curved lines aren't available yet: drawing a straight line")
     }
 
     override fun setSnapAngles(on: Boolean) {
@@ -268,14 +268,30 @@ class CanvasEditor(
             Tool.Select, Tool.Image -> CanvasTool.SELECT
         }
 
-        /** The note's shape for a toolbar shape; the note has only rectangles and ellipses, so the rest draw rectangles. */
-        fun modelShape(kind: ShapeKind): ModelShape = if (kind == ShapeKind.Ellipse) ModelShape.ELLIPSE else ModelShape.RECTANGLE
+        /** The note's shape for a toolbar shape. */
+        fun modelShape(kind: ShapeKind): ModelShape = when (kind) {
+            ShapeKind.Rectangle -> ModelShape.RECTANGLE
+            ShapeKind.RoundedRectangle -> ModelShape.ROUNDED_RECTANGLE
+            ShapeKind.Ellipse -> ModelShape.ELLIPSE
+            ShapeKind.Triangle -> ModelShape.TRIANGLE
+            ShapeKind.Diamond -> ModelShape.DIAMOND
+            ShapeKind.Hexagon -> ModelShape.HEXAGON
+            ShapeKind.Parallelogram -> ModelShape.PARALLELOGRAM
+            ShapeKind.Cylinder -> ModelShape.CYLINDER
+        }
 
-        /** Elbow and curved lines aren't built, so they draw straight lines. */
+        /** Which ends get arrowheads; the elbow connector and the curved arrow have one at the end, as their glyphs do. */
         fun lineArrows(kind: LineKind): LineArrows = when (kind) {
-            LineKind.Arrow -> LineArrows.END
+            LineKind.Line -> LineArrows.NONE
+            LineKind.Arrow, LineKind.Elbow, LineKind.Curve -> LineArrows.END
             LineKind.DoubleArrow -> LineArrows.BOTH
-            LineKind.Line, LineKind.Elbow, LineKind.Curve -> LineArrows.NONE
+        }
+
+        /** How a toolbar line kind runs. */
+        fun lineRoute(kind: LineKind): LineRoute = when (kind) {
+            LineKind.Line, LineKind.Arrow, LineKind.DoubleArrow -> LineRoute.STRAIGHT
+            LineKind.Elbow -> LineRoute.ELBOW
+            LineKind.Curve -> LineRoute.CURVE
         }
 
         /**

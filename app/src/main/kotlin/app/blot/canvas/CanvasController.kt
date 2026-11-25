@@ -13,6 +13,7 @@ import app.blot.core.model.Argb
 import app.blot.core.model.Arrowhead
 import app.blot.core.model.Element
 import app.blot.core.model.Image
+import app.blot.core.model.LineRoute
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Rect
@@ -80,7 +81,7 @@ class CanvasController(initial: Note) {
     /** Fill of new shapes, or null for none. Their outline uses [color] and [width]. */
     var shapeFill by mutableStateOf<Argb?>(null)
 
-    /** Draws rectangles as squares and ellipses as circles, as Shift does in drawing apps. */
+    /** Draws every shape in a square frame (a circle, a square, an even diamond), as Shift does in drawing apps. */
     var constrainShapes by mutableStateOf(false)
 
     /** Which ends of new lines get an arrowhead. */
@@ -89,7 +90,13 @@ class CanvasController(initial: Note) {
     /** The arrowhead [lineArrows] puts on new lines. */
     var arrowhead by mutableStateOf(Arrowhead.ARROW)
 
-    /** Snaps new lines to multiples of 15°. */
+    /**
+     * How new lines run: straight from pen-down to pen-up, an elbow between them, or a curve
+     * along the drag.
+     */
+    var lineRoute by mutableStateOf(LineRoute.STRAIGHT)
+
+    /** Snaps new straight lines to multiples of 15°, and makes elbows drawn within 15° of level or plumb straight. */
     var snapAngles by mutableStateOf(true)
 
     /** Body font size of new text boxes, canvas units. */
