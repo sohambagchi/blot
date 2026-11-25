@@ -126,6 +126,7 @@ class CanvasTestActivity : ComponentActivity() {
         CanvasController.newNote()
     }
 
+    @Synchronized
     private fun save(note: Note) {
         try {
             noteFile.parentFile?.mkdirs()
