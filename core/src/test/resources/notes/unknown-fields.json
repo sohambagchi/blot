@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "id": "note-1",
+  "title": "From a newer app",
+  "created": "2026-11-24T19:00:00Z",
+  "modified": "2026-11-24T19:05:30.250Z",
+  "tags": ["future", "fields"],
+  "sync": { "device": "tablet", "revision": 7 },
+  "page": { "type": "pages", "paper": "a4", "width": 1322.8346, "height": 1870.8662, "count": 2, "margin": 40 },
+  "elements": [
+    {
+      "type": "stroke",
+      "id": "s1",
+      "points": "CwIAMP4/Cjf9Pw==",
+      "color": "#FF1A1A1A",
+      "width": 2.5,
+      "pen": "pencil",
+      "smoothing": 0.6,
+      "locked": true
+    },
+    {
+      "type": "shape",
+      "id": "r1",
+      "kind": "ellipse",
+      "frame": { "x": 10, "y": 20, "width": 100, "height": 50, "cornerRadius": 4 },
+      "color": "#FFD32F2F",
+      "width": 3,
+      "fill": "#4000FF00",
+      "rotation": 0.5,
+      "dash": [4, 2]
+    },
+    {
+      "type": "text",
+      "id": "t1",
+      "frame": { "x": 0, "y": 0, "width": 200, "height": 40 },
+      "markdown": "# Hello",
+      "fontSize": 16,
+      "color": "#FF000000",
+      "font": "serif"
+    }
+  ]
+}
