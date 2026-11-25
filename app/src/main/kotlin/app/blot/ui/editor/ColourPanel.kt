@@ -38,9 +38,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -61,6 +67,8 @@ import app.blot.ui.theme.Elevation
 import app.blot.ui.theme.Radii
 import app.blot.ui.theme.BlotType
 import app.blot.ui.theme.colors
+import app.blot.ui.theme.inkForDisplay
+import app.blot.canvas.InkColors as CanvasInk
 
 /** The design's monochrome palettes, dark to light. */
 internal val Palettes: List<Pair<String, List<Long>>> = listOf(
@@ -82,7 +90,11 @@ internal val Palettes: List<Pair<String, List<Long>>> = listOf(
  */
 private class WheelPick(var h: Float, var s: Float, var tone: Float, var rgb: Int)
 
-/** The colour panel: wheel, tone strip, hex field, widths, palettes and the two toggles. */
+/**
+ * The colour panel: wheel, tone strip, hex field, widths, palettes and the two toggles. Every
+ * colour it shows is the colour that draws in the current theme ([inkForDisplay]); the hex field
+ * keeps the stored colour, with what it draws as beneath it in dark mode.
+ */
 @Composable
 internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier) {
     val c = colors
@@ -109,18 +121,21 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            ColourWheel(pick.h, pick.s) { h, s ->
+            ColourWheel(pick.h, pick.s, c.dark) { h, s ->
                 pick.h = h
                 pick.s = s
                 if (pick.tone == 0f) pick.tone = 0.5f
                 choose(ColourMath.withTone(h, s, pick.tone))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ToneStrip(pick.h, pick.s, pick.tone) { t ->
+                ToneStrip(pick.h, pick.s, pick.tone, c.dark) { t ->
                     pick.tone = t
                     choose(ColourMath.withTone(pick.h, pick.s, t))
                 }
-                HexField(rgb) { parsed -> set(parsed) }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    HexField(rgb) { parsed -> set(parsed) }
+                    if (c.dark) DrawsAs(state.color)
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     for (w in EditorUiState.WidthPresets) WidthButton(w, state.strokeWidth == w) { actions.setStrokeWidth(w) }
                 }
@@ -136,7 +151,7 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
                             Modifier
                                 .size(28.dp)
                                 .clip(shape)
-                                .background(Color(hex))
+                                .background(inkForDisplay(Argb(hex.toInt()), c.dark))
                                 .border(if (chosen) 2.dp else 1.dp, if (chosen) c.text else c.border, shape)
                                 .clickable(role = Role.Button) { set(hex.toInt()) }
                                 .semantics {
@@ -158,10 +173,11 @@ internal fun ColourPanel(state: EditorUiState, actions: EditorActions, modifier:
 
 /**
  * The HSV wheel: a sweep gradient for hue (red at 3 o'clock, clockwise) under a radial white
- * fade for saturation. Tapping or dragging reports hue and saturation.
+ * fade for saturation, or in [dark] mode the same colours as they draw. Tapping or dragging
+ * reports hue and saturation.
  */
 @Composable
-internal fun ColourWheel(h: Float, s: Float, modifier: Modifier = Modifier, onPick: (Float, Float) -> Unit) {
+internal fun ColourWheel(h: Float, s: Float, dark: Boolean, modifier: Modifier = Modifier, onPick: (Float, Float) -> Unit) {
     val pickNow by rememberUpdatedState(onPick)
     val hues = remember {
         listOf(Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00), Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF), Color(0xFFFF0000))
@@ -188,8 +204,12 @@ internal fun ColourWheel(h: Float, s: Float, modifier: Modifier = Modifier, onPi
             },
     ) {
         val r = size.minDimension / 2f
-        drawCircle(Brush.sweepGradient(hues, center), r)
-        drawCircle(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0f)), center, r), r)
+        if (dark) {
+            drawCircle(DarkWheelBrush, r)
+        } else {
+            drawCircle(Brush.sweepGradient(hues, center), r)
+            drawCircle(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0f)), center, r), r)
+        }
         val (dx, dy) = ColourMath.wheelOffset(h, s, r)
         val m = Offset(center.x + dx, center.y + dy)
         val ring = 7.dp.toPx()
@@ -198,11 +218,34 @@ internal fun ColourWheel(h: Float, s: Float, modifier: Modifier = Modifier, onPi
     }
 }
 
-/** Black → wheel colour → white; the knob shows [tone]. */
+/**
+ * The wheel as dark mode draws it: each pixel is the wheel's colour there through the canvas's
+ * dark-mode transform. Built once per process at 1 px per dp of the wheel and scaled to fit.
+ */
+private val DarkWheelBrush: ShaderBrush by lazy {
+    val n = 128
+    val r = n / 2f
+    val pixels = IntArray(n * n) { i ->
+        val (h, s) = ColourMath.wheelHueSat(i % n + 0.5f - r, i / n + 0.5f - r, r)
+        CanvasInk.darkMode(ColourMath.hsvToRgb(h, s, 1f))
+    }
+    ScaledImageBrush(android.graphics.Bitmap.createBitmap(pixels, n, n, android.graphics.Bitmap.Config.ARGB_8888).asImageBitmap())
+}
+
+/** Paints [image] stretched over the area it fills. */
+private class ScaledImageBrush(private val image: ImageBitmap) : ShaderBrush() {
+    override fun createShader(size: Size): Shader = ImageShader(image).apply {
+        setLocalMatrix(android.graphics.Matrix().apply { setScale(size.width / image.width, size.height / image.height) })
+    }
+}
+
+/** Black → wheel colour → white as each draws in the theme; the knob shows [tone]. */
 @Composable
-private fun ToneStrip(h: Float, s: Float, tone: Float, onTone: (Float) -> Unit) {
+private fun ToneStrip(h: Float, s: Float, tone: Float, dark: Boolean, onTone: (Float) -> Unit) {
     val toneNow by rememberUpdatedState(onTone)
-    val mid = Color(ColourMath.hsvToRgb(h, s, 1f))
+    // Enough stops that the dark-mode curve between them reads as smooth; in light mode the strip
+    // is linear in sRGB, so these stops give the plain three-stop gradient.
+    val stops = remember(h, s, dark) { List(33) { i -> inkForDisplay(Argb(ColourMath.withTone(h, s, i / 32f)), dark) } }
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -221,7 +264,7 @@ private fun ToneStrip(h: Float, s: Float, tone: Float, onTone: (Float) -> Unit) 
     ) {
         val r = size.height / 2f
         drawRoundRect(
-            Brush.horizontalGradient(listOf(Color.Black, mid, Color.White)),
+            Brush.horizontalGradient(stops),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r),
         )
         if (tone != 0.5f) {
@@ -268,6 +311,17 @@ private fun HexField(rgb: Int, onColour: (Int) -> Unit) {
             Box(Modifier.padding(horizontal = 11.dp), contentAlignment = Alignment.CenterStart) { inner() }
         },
     )
+}
+
+/** A muted line under the hex field: the swatch and hex of the colour [ink] draws as in dark mode. */
+@Composable
+private fun DrawsAs(ink: Argb) {
+    val c = colors
+    val drawn = CanvasInk.darkMode(ink.value)
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(Color(drawn)).border(1.dp, c.border, CircleShape))
+        BasicText("draws as ${ColourMath.toHex(drawn)}", style = BlotType.monoCaption.copy(color = c.muted), maxLines = 1)
+    }
 }
 
 @Composable

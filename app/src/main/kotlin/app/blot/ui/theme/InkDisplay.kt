@@ -16,6 +16,6 @@ object QuickInk {
 /**
  * How a stored ink colour looks on the page in the current theme, for swatches and dots in the
  * chrome: the canvas's own dark-mode transform, so a swatch matches the ink it draws
- * (docs/adr/2026-11-24-1742-dark-mode-ink-invert-and-lighten.md).
+ * (docs/adr/2026-11-24-2329-dark-mode-ink-lightness-band.md).
  */
 fun inkForDisplay(ink: Argb, dark: Boolean): Color = Color(if (dark) CanvasInk.darkMode(ink.value) else ink.value)

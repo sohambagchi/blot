@@ -15,8 +15,9 @@ import app.blot.core.model.NoteTitle
 import app.blot.core.store.FolderNameException
 import app.blot.core.store.FolderNames
 import app.blot.ui.editor.ExportOptions
-import app.blot.ui.theme.InkColors
+import app.blot.ui.theme.QuickInk
 import app.blot.ui.theme.ThemeSetting
+import app.blot.ui.theme.inkForDisplay
 
 /**
  * An in-memory [LibraryActions] with the design's sample notes, for previews and tests. Search
@@ -65,16 +66,10 @@ class FakeLibrary(
         val counts = samples.groupingBy { it.folder }.eachCount()
         val items = listOf(FolderItem(null, "All notes", samples.size + folders.sumOf { it.extra })) +
             folders.sortedBy { it.name.lowercase() }.map { FolderItem(it.id, it.name, (counts[it.id] ?: 0) + it.extra) }
-        val ink = if (dark) InkColors.Dark else InkColors.Light
         state = s.copy(
             folders = items,
             notes = shown.map {
-                val colour = when (it.ink) {
-                    1 -> ink.red
-                    2 -> ink.blue
-                    3 -> ink.green
-                    else -> ink.black
-                }
+                val colour = inkForDisplay(QuickInk.all.getOrElse(it.ink) { QuickInk.Black }, dark)
                 NoteCard(it.id, NoteTitle.display(it.title), it.date, it.kind, it.pages, thumbnail(it.scribble, colour), untitled = it.title.isBlank(), folder = it.folder)
             },
         )

@@ -27,7 +27,6 @@ data class BlotColors(
     /** The library's slightly stronger shadow (menus, new-note button). */
     val shadowStrong: Color,
     val scrim: Color,
-    val ink: InkColors,
 ) {
     companion object {
         val Light = BlotColors(
@@ -50,7 +49,6 @@ data class BlotColors(
             shadow = Color(0x141C1B19),
             shadowStrong = Color(0x1A1C1B19),
             scrim = Color(0x591C1B19),
-            ink = InkColors.Light,
         )
 
         val Dark = BlotColors(
@@ -73,16 +71,6 @@ data class BlotColors(
             shadow = Color(0x73000000),
             shadowStrong = Color(0x73000000),
             scrim = Color(0x8C000000),
-            ink = InkColors.Dark,
         )
-    }
-}
-
-/** The four quick ink colours as they are drawn in each theme. */
-@Immutable
-data class InkColors(val black: Color, val red: Color, val blue: Color, val green: Color) {
-    companion object {
-        val Light = InkColors(Color(0xFF1C1B19), Color(0xFFD93F3F), Color(0xFF2F6BDE), Color(0xFF2E9A5B))
-        val Dark = InkColors(Color(0xFFECEAE6), Color(0xFFFF6B6B), Color(0xFF6EA0FF), Color(0xFF5FCB8A))
     }
 }
