@@ -9,6 +9,10 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2346-application-id-com-sohambagchi-blot](adr/2026-11-24-2346-application-id-com-sohambagchi-blot.md) — the app id is com.sohambagchi.blot, as depot requires
+- [2026-11-24-2346-release-builds-unobfuscated-cleartext-only-to-depot](adr/2026-11-24-2346-release-builds-unobfuscated-cleartext-only-to-depot.md) — release builds aren't obfuscated; cleartext only to depot
+- [2026-11-24-2329-dark-mode-ink-lightness-band](adr/2026-11-24-2329-dark-mode-ink-lightness-band.md) — dark mode maps colour lightness into a band, so colours stay distinct
+- [2026-11-24-2313-updates-through-depot](adr/2026-11-24-2313-updates-through-depot.md) — builds update themselves through depot
 - [2026-11-24-2228-folders-are-subdirectories](adr/2026-11-24-2228-folders-are-subdirectories.md) — library folders are one level of subdirectories; deleting one moves its notes out; moves fall back to a verified copy
 - [2026-11-24-2244-note-background-patterns](adr/2026-11-24-2244-note-background-patterns.md) — per-note dots, grid or ruled background, an optional field in format 1, not an undo step
 - [2026-11-24-2236-format-2-shape-kinds-and-line-routes](adr/2026-11-24-2236-format-2-shape-kinds-and-line-routes.md) — format 2 adds shape kinds and line routes; notes are written at the lowest version they need
@@ -39,6 +43,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2335-dark-colours](changelog/2026-11-24-2335-dark-colours.md) — the colour panel shows the colours dark mode draws
 - [2026-11-24-2245-library-folders](changelog/2026-11-24-2245-library-folders.md) — folders in the library: create, rename, delete, Move to…
 - [2026-11-24-2244-note-backgrounds](changelog/2026-11-24-2244-note-backgrounds.md) — Background panel with dots, grid and ruled lines, sizes and export
 - [2026-11-24-2236-shapes-and-line-routes](changelog/2026-11-24-2236-shapes-and-line-routes.md) — every shape kind and elbow and curved lines draw
