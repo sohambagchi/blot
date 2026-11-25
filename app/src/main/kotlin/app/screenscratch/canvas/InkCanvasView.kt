@@ -74,6 +74,7 @@ class InkCanvasView(
     private var sceneGeneration = 0
     private var viewportChangedSinceStroke = true
     private var downNanos = 0L
+    private var receivedNanos = 0L
     private var lastCommitMs = 0L
     private var bufferHoldsContent = false
 
@@ -156,6 +157,7 @@ class InkCanvasView(
         if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_POINTER_DOWN) {
             // Same clock as System.nanoTime (CLOCK_MONOTONIC); whole milliseconds before API 34.
             downNanos = if (Build.VERSION.SDK_INT >= 34) event.eventTimeNanos else event.eventTime * 1_000_000
+            receivedNanos = System.nanoTime()
             val tool = event.getToolType(event.actionIndex)
             if (tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER) {
                 // Deliver each sample as it arrives instead of once per vsync.
@@ -208,6 +210,7 @@ class InkCanvasView(
                 SceneState(controller.note.value, v, controller.darkMode, controller.frontBufferContent, width, height, sceneGeneration),
                 uiRenderer.color(b.color.value, controller.darkMode),
                 downNanos,
+                receivedNanos,
                 viewportChangedSinceStroke,
             )
             viewportChangedSinceStroke = false
@@ -292,14 +295,16 @@ class InkCanvasView(
         }
     }
 
-    private fun reportFirstInk(downNanos: Long, drawnNanos: Long, sceneNanos: Long, afterPan: Boolean) {
+    private fun reportFirstInk(downNanos: Long, receivedNanos: Long, drawnNanos: Long, sceneNanos: Long, afterPan: Boolean) {
         val ms = (drawnNanos - downNanos) / 1e6f
+        val dispatchMs = (receivedNanos - downNanos) / 1e6f
         val sceneMs = if (sceneNanos < 0) Float.NaN else sceneNanos / 1e6f
-        Log.i(TAG, "pen-down to first front-buffer draw %.2f ms (scene %s, after pan %b)".format(
-            ms, if (sceneNanos < 0) "not redrawn" else "%.2f ms".format(sceneMs), afterPan,
+        Log.i(TAG, "pen-down to first front-buffer draw %.2f ms (dispatch %.2f ms, scene %s, after pan %b)".format(
+            ms, dispatchMs, if (sceneNanos < 0) "not redrawn" else "%.2f ms".format(sceneMs), afterPan,
         ))
         post {
             controller.stats.penDownToInkMs = ms
+            controller.stats.penDownDispatchMs = dispatchMs
             controller.stats.sceneRenderMs = sceneMs
             controller.stats.afterPan = afterPan
         }
@@ -332,6 +337,7 @@ class InkCanvasView(
         @Volatile private var inkColor = 0
         private val strokeSerial = AtomicInteger()
         private val firstDrawDown = AtomicLong(-1)
+        @Volatile private var received = 0L
         private val firstPresentDown = AtomicLong(-1)
         private val clearInk = AtomicBoolean(false)
         @Volatile private var afterPan = false
@@ -343,7 +349,8 @@ class InkCanvasView(
         private val strokeSegments = ArrayList<LiveSegment>()
 
         /** UI thread: publishes the scene and ink colour for a new stroke. */
-        fun beginStroke(s: SceneState, color: Int, downNanos: Long, afterPan: Boolean) {
+        fun beginStroke(s: SceneState, color: Int, downNanos: Long, receivedNanos: Long, afterPan: Boolean) {
+            received = receivedNanos
             queue.clear()
             scene = s
             inkColor = color
@@ -411,7 +418,7 @@ class InkCanvasView(
             }
             canvas.restore()
             val down = firstDrawDown.getAndSet(-1)
-            if (down >= 0) reportFirstInk(down, System.nanoTime(), sceneNanos, afterPan)
+            if (down >= 0) reportFirstInk(down, received, System.nanoTime(), sceneNanos, afterPan)
         }
 
         private fun drawSegments(canvas: Canvas, s: SceneState, segments: List<LiveSegment>) {

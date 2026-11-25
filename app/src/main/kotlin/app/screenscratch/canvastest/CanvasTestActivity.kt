@@ -201,7 +201,7 @@ class CanvasTestActivity : ComponentActivity() {
         val v = controller.viewport
         BasicText(
             buildString {
-                append("pen-down→ink ${ms(s.penDownToInkMs)}")
+                append("pen-down→ink ${ms(s.penDownToInkMs)} (dispatch ${ms(s.penDownDispatchMs)})")
                 append(" · →display ${ms(s.penDownToPresentMs)}")
                 append(" · scene in buffer ${ms(s.sceneRenderMs)}${if (s.afterPan) " (after pan)" else ""}")
                 append(" · view draw ${ms(s.sceneDrawMs)} (${s.drawnElements} el)")

@@ -182,19 +182,21 @@ class InputRouter(private val target: InputTarget) {
                     Role.NONE -> Unit
                 }
             }
-            is Pinch -> {
-                val a = e.pointer(g.a)?.current ?: return
-                val b = e.pointer(g.b)?.current ?: return
-                val cx = (a.x + b.x) / 2
-                val cy = (a.y + b.y) / 2
-                val span = hypot(b.x - a.x, b.y - a.y)
-                val factor = if (g.span >= 1f && span >= 1f) span / g.span else 1f
-                target.transform(cx - g.cx, cy - g.cy, factor, cx, cy)
-                g.cx = cx
-                g.cy = cy
-                g.span = span
-            }
+            is Pinch -> pinchTo(g, e)
         }
+    }
+
+    private fun pinchTo(g: Pinch, e: InputEvent) {
+        val a = e.pointer(g.a)?.current ?: return
+        val b = e.pointer(g.b)?.current ?: return
+        val cx = (a.x + b.x) / 2
+        val cy = (a.y + b.y) / 2
+        val span = hypot(b.x - a.x, b.y - a.y)
+        val factor = if (g.span >= 1f && span >= 1f) span / g.span else 1f
+        if (cx != g.cx || cy != g.cy || factor != 1f) target.transform(cx - g.cx, cy - g.cy, factor, cx, cy)
+        g.cx = cx
+        g.cy = cy
+        g.span = span
     }
 
     private fun panTo(g: Single, s: InputSample) {

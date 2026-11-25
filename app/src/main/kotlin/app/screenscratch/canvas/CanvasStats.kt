@@ -15,6 +15,10 @@ class CanvasStats {
     var penDownToInkMs by mutableFloatStateOf(Float.NaN)
         internal set
 
+    /** Pen-down event time to the canvas view receiving it: input dispatch, which the canvas doesn't control. */
+    var penDownDispatchMs by mutableFloatStateOf(Float.NaN)
+        internal set
+
     /** Pen-down event time to the front buffer's first frame being handed to the display. */
     var penDownToPresentMs by mutableFloatStateOf(Float.NaN)
         internal set
