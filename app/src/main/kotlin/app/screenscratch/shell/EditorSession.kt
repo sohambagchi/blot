@@ -17,6 +17,8 @@ import app.screenscratch.core.store.NoteStore
 import app.screenscratch.ui.editor.EditorUiState
 import app.screenscratch.ui.editor.ExportOptions
 import kotlinx.coroutines.CoroutineScope
+import app.screenscratch.core.export.ExportAssets
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
@@ -141,17 +143,17 @@ class EditorSession(
     }
 
     private fun export(options: ExportOptions, target: ExportTarget) {
-        val note = controller.note.value
-        io.launch {
-            val error = try {
-                exporter.export(note, options, target)
-                null
+        val job = ExportJob(
+            controller.note.value, ExportAssets.of(store, noteId), options,
+            editor.visibleArea(), controller.selection, dark,
+        )
+        main.launch {
+            try {
+                if (exporter.export(job, target)) editor.setExportOpen(false)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                e
-            }
-            withContext(Dispatchers.Main.immediate) {
-                if (error != null) editor.showMessage(error.message ?: "Export failed")
-                else if (target == ExportTarget.Folder) editor.setExportOpen(false)
+                editor.showMessage(e.message ?: "Export failed")
             }
         }
     }

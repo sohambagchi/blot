@@ -25,7 +25,11 @@ import app.screenscratch.ui.editor.ShapeKind
 import app.screenscratch.ui.editor.Tool
 import app.screenscratch.ui.library.PageKind
 import kotlin.math.roundToInt
+import app.screenscratch.canvas.LineArrows
 import app.screenscratch.canvas.Tool as CanvasTool
+import app.screenscratch.canvas.EraserMode as CanvasEraserMode
+import app.screenscratch.canvas.SelectMode as CanvasSelectMode
+import app.screenscratch.core.model.ShapeKind as ModelShape
 
 /**
  * The editor's state holder: the chrome's [app.screenscratch.ui.editor.EditorActions] drive
@@ -69,6 +73,7 @@ class CanvasEditor(
                 tool = tool,
                 penMode = penMode,
                 canUndo = controller.canUndo,
+                hasSelection = controller.hasSelection,
                 canRedo = controller.canRedo,
                 zoomPercent = (controller.viewport.zoom * 100).roundToInt(),
                 pageLabel = pageLabel(p),
@@ -92,7 +97,13 @@ class CanvasEditor(
     }
 
     private fun applyTool() {
-        controller.tool = canvasTool(state.tool, state.penMode)
+        val s = state
+        controller.eraserMode = if (s.eraserMode == EraserMode.PartOfStroke) CanvasEraserMode.PARTIAL else CanvasEraserMode.WHOLE_STROKE
+        controller.selectMode = if (s.selectMode == SelectMode.Rectangle) CanvasSelectMode.RECTANGLE else CanvasSelectMode.LASSO
+        controller.shapeKind = modelShape(s.shape)
+        controller.lineArrows = lineArrows(s.line)
+        controller.snapAngles = s.snapAngles
+        controller.tool = canvasTool(s.tool, s.penMode)
     }
 
     override fun selectTool(tool: Tool) {
@@ -118,11 +129,18 @@ class CanvasEditor(
     override fun setShape(kind: ShapeKind) {
         super.setShape(kind)
         applyTool()
+        if (kind != ShapeKind.Rectangle && kind != ShapeKind.Ellipse) showMessage("Only rectangles and ellipses for now: drawing a rectangle")
     }
 
     override fun setLine(kind: LineKind) {
         super.setLine(kind)
         applyTool()
+        if (kind == LineKind.Elbow || kind == LineKind.Curve) showMessage("Elbow and curved lines aren't available yet: drawing a straight line")
+    }
+
+    override fun setSnapAngles(on: Boolean) {
+        super.setSnapAngles(on)
+        controller.snapAngles = on
     }
 
     override fun setColor(color: Argb) {
@@ -182,6 +200,10 @@ class CanvasEditor(
         page = controller.note.value.page
     }
 
+    /** The canvas rectangle on screen, or null before the canvas has a size. */
+    fun visibleArea(): Rect? =
+        if (canvasSizePx.width > 0) controller.viewport.visibleRect(canvasSizePx.width, canvasSizePx.height) else null
+
     private fun areaSizes(): Map<ExportArea, IntSize> {
         val n = controller.note.value
         val out = HashMap<ExportArea, IntSize>()
@@ -198,7 +220,7 @@ class CanvasEditor(
     }
 
     companion object {
-        /** The canvas tool for a toolbar choice. Tools the canvas doesn't have yet select, which does nothing. */
+        /** The canvas tool for a toolbar choice. Image import isn't built yet, so the image tool selects. */
         fun canvasTool(tool: Tool, penMode: PenMode): CanvasTool = when (tool) {
             Tool.Pen -> when (penMode) {
                 PenMode.Pen -> CanvasTool.PEN
@@ -206,7 +228,20 @@ class CanvasEditor(
                 PenMode.Pointer -> CanvasTool.SELECT
             }
             Tool.Eraser -> CanvasTool.ERASER
-            Tool.Select, Tool.Shape, Tool.Line, Tool.Text, Tool.Image -> CanvasTool.SELECT
+            Tool.Shape -> CanvasTool.SHAPE
+            Tool.Line -> CanvasTool.LINE
+            Tool.Text -> CanvasTool.TEXT
+            Tool.Select, Tool.Image -> CanvasTool.SELECT
+        }
+
+        /** The note's shape for a toolbar shape; the note has only rectangles and ellipses, so the rest draw rectangles. */
+        fun modelShape(kind: ShapeKind): ModelShape = if (kind == ShapeKind.Ellipse) ModelShape.ELLIPSE else ModelShape.RECTANGLE
+
+        /** Elbow and curved lines aren't built, so they draw straight lines. */
+        fun lineArrows(kind: LineKind): LineArrows = when (kind) {
+            LineKind.Arrow -> LineArrows.END
+            LineKind.DoubleArrow -> LineArrows.BOTH
+            LineKind.Line, LineKind.Elbow, LineKind.Curve -> LineArrows.NONE
         }
 
         /**
@@ -220,6 +255,9 @@ class CanvasEditor(
                 CanvasTool.PAN -> Tool.Pen to PenMode.Hand
                 CanvasTool.SELECT -> Tool.Pen to PenMode.Pointer
                 CanvasTool.ERASER -> Tool.Eraser to penMode
+                CanvasTool.SHAPE -> Tool.Shape to penMode
+                CanvasTool.LINE -> Tool.Line to penMode
+                CanvasTool.TEXT -> Tool.Text to penMode
             }
 
         fun pageKind(p: PageSetup): PageKind = when (p) {

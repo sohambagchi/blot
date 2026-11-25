@@ -1,5 +1,9 @@
 package app.screenscratch.shell
 
+import app.screenscratch.canvas.LineArrows
+import app.screenscratch.ui.editor.EraserMode
+import app.screenscratch.ui.editor.LineKind
+import app.screenscratch.ui.editor.ShapeKind
 import app.screenscratch.canvas.CanvasController
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Orientation
@@ -48,8 +52,23 @@ class CanvasEditorTest {
         editor.selectTool(Tool.Eraser)
         assertEquals(CanvasTool.ERASER, controller.tool)
         editor.selectTool(Tool.Shape)
-        assertEquals(CanvasTool.SELECT, controller.tool)
+        assertEquals(CanvasTool.SHAPE, controller.tool)
         assertEquals(Tool.Shape, editor.uiState.tool)
+        editor.setShape(ShapeKind.Ellipse)
+        assertEquals(app.screenscratch.core.model.ShapeKind.ELLIPSE, controller.shapeKind)
+        editor.setShape(ShapeKind.Triangle)
+        assertEquals(app.screenscratch.core.model.ShapeKind.RECTANGLE, controller.shapeKind)
+        editor.selectTool(Tool.Line)
+        assertEquals(CanvasTool.LINE, controller.tool)
+        editor.setLine(LineKind.DoubleArrow)
+        assertEquals(LineArrows.BOTH, controller.lineArrows)
+        editor.setLine(LineKind.Line)
+        assertEquals(LineArrows.NONE, controller.lineArrows)
+        editor.selectTool(Tool.Text)
+        assertEquals(CanvasTool.TEXT, controller.tool)
+        editor.selectTool(Tool.Eraser)
+        editor.setEraserMode(EraserMode.PartOfStroke)
+        assertEquals(app.screenscratch.canvas.EraserMode.PARTIAL, controller.eraserMode)
         // The pen keeps its last mode.
         editor.selectTool(Tool.Pen)
         assertEquals(CanvasTool.SELECT, controller.tool)
@@ -66,8 +85,8 @@ class CanvasEditorTest {
         controller.cycleTool()
         assertEquals(Tool.Pen to PenMode.Pen, editor.uiState.let { it.tool to it.penMode })
         // A toolbar tool the canvas maps to SELECT stays shown while the canvas agrees.
-        editor.selectTool(Tool.Text)
-        assertEquals(Tool.Text, editor.uiState.tool)
+        editor.selectTool(Tool.Image)
+        assertEquals(Tool.Image, editor.uiState.tool)
     }
 
     @Test

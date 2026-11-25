@@ -48,6 +48,11 @@ class InputRouterTest {
         }
 
         override fun transformEnd() { calls += "transformEnd" }
+
+        override fun editStart(sample: InputSample) { calls += "editStart:${sample.x.toInt()}" }
+        override fun editMove(samples: List<InputSample>) { calls += "editMove:" + samples.joinToString(",") { it.x.toInt().toString() } }
+        override fun editEnd() { calls += "editEnd" }
+        override fun editCancel() { calls += "editCancel" }
     }
 
     private val t = Recorder()
@@ -225,10 +230,32 @@ class InputRouterTest {
     }
 
     @Test
-    fun selectToolDoesNothingYet() {
+    fun selectShapeLineAndTextAreEditGestures() {
+        for (tool in listOf(Tool.SELECT, Tool.SHAPE, Tool.LINE, Tool.TEXT)) {
+            t.tool = tool
+            t.calls.clear()
+            stroke(STYLUS)
+            // The lifting sample is passed on too: a line ends where the pen lifts.
+            assertEquals(listOf("editStart:10", "editMove:11,12,13", "editMove:13", "editEnd"), t.calls)
+            assertFalse(router.inking)
+        }
+    }
+
+    @Test
+    fun theEraseButtonEndsAnEditGestureAndErases() {
         t.tool = Tool.SELECT
-        stroke(STYLUS)
-        assertTrue(t.calls.isEmpty())
+        ev(DOWN, p(0, STYLUS, 10f))
+        ev(MOVE, p(0, STYLUS, 11f), buttons = StylusButtons.PRIMARY)
+        assertEquals(listOf("editStart:10", "editEnd", "start:ERASE:STYLUS:11"), t.calls)
+    }
+
+    @Test
+    fun aSecondFingerCancelsAFingerEditForAPinch() {
+        t.tool = Tool.SHAPE
+        t.penOnly = false
+        ev(DOWN, p(0, FINGER, 10f))
+        ev(POINTER_DOWN, p(0, FINGER, 10f), p(1, FINGER, 50f), actionId = 1)
+        assertEquals(listOf("editStart:10", "editCancel"), t.calls)
     }
 
     @Test

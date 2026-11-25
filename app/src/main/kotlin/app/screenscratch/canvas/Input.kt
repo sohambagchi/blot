@@ -3,19 +3,45 @@ package app.screenscratch.canvas
 /** What a pen drag does. */
 enum class Tool {
     PEN,
+
+    /** Erases as [CanvasController.eraserMode] says. */
     ERASER,
     PAN,
 
-    /** Selection is not built yet; pen drags with it do nothing. */
-    SELECT;
+    /** Lasso or rectangle selection, by [CanvasController.selectMode]; drags on a selection move or scale it. */
+    SELECT,
 
-    /** The tool the pen's cycle button moves to: pen → pan → select → pen. The eraser goes to the pen. */
+    /** Draws a [CanvasController.shapeKind] by dragging from corner to corner. */
+    SHAPE,
+
+    /** Draws a straight line by dragging, with [CanvasController.lineArrows]. */
+    LINE,
+
+    /** A tap creates a text box, or edits the one under it. */
+    TEXT;
+
+    /** The tool the pen's cycle button moves to: pen → pan → select → pen. Any other tool goes to the pen. */
     fun next(): Tool = when (this) {
         PEN -> PAN
         PAN -> SELECT
-        SELECT, ERASER -> PEN
+        SELECT, ERASER, SHAPE, LINE, TEXT -> PEN
     }
 }
+
+/** What the eraser takes. */
+enum class EraserMode {
+    /** Whole strokes it touches. */
+    WHOLE_STROKE,
+
+    /** Only the parts of strokes it passes over; the rest are split into new strokes. */
+    PARTIAL,
+}
+
+/** How [Tool.SELECT] picks elements when dragged off a selection. */
+enum class SelectMode { LASSO, RECTANGLE }
+
+/** Which ends of a line [Tool.LINE] draws with an arrowhead. */
+enum class LineArrows { NONE, END, BOTH }
 
 /** The kind of pointer, from `MotionEvent.getToolType`. */
 enum class PointerKind { STYLUS, ERASER, FINGER, MOUSE, UNKNOWN }

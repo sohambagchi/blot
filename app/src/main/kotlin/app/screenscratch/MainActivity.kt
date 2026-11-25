@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import app.screenscratch.canvastest.CanvasTestActivity
 import app.screenscratch.pentest.PenTestActivity
 import app.screenscratch.shell.AppModel
+import app.screenscratch.shell.LauncherExporter
 import app.screenscratch.shell.ScreenScratchApp
 import app.screenscratch.storage.NoteFolder
 import app.screenscratch.ui.preview.UiPreviewActivity
@@ -25,7 +26,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val folder = NoteFolder(applicationContext)
-        app = AppModel(applicationContext, folder, version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty())
+        app = AppModel(
+            applicationContext, folder, exporter = LauncherExporter(this),
+            version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty(),
+        )
         val picker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree(), app::onTreePicked)
         app.pickFolder = { picker.launch(it) }
         app.openDebug = { screen ->
