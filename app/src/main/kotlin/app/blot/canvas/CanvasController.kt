@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.blot.core.edit.Groups
 import app.blot.core.edit.PartialErase
 import app.blot.core.edit.Selection
 import app.blot.core.edit.SelectionEdits
@@ -11,9 +12,11 @@ import app.blot.core.edit.Similarity
 import app.blot.core.model.Argb
 import app.blot.core.model.Arrowhead
 import app.blot.core.model.Element
+import app.blot.core.model.Image
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Rect
+import app.blot.core.model.Shape
 import app.blot.core.model.ShapeKind
 import app.blot.core.model.Stroke
 import app.blot.core.model.TextBox
@@ -22,7 +25,9 @@ import app.blot.core.model.bringToFront
 import app.blot.core.model.sendBackward
 import app.blot.core.model.sendToBack
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.sin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,8 +54,8 @@ class CanvasController(initial: Note) {
     private var _tool by mutableStateOf(Tool.PEN)
 
     /**
-     * What pen drags do; the pen's cycle button changes it too. Changing it finishes any text
-     * edit, and leaving [Tool.SELECT] clears the selection.
+     * What pen drags do; the pen's pointer button makes it [Tool.SELECT]. Changing it finishes
+     * any text edit and closes the selection menu, and leaving [Tool.SELECT] clears the selection.
      */
     var tool: Tool
         get() = _tool
@@ -58,7 +63,8 @@ class CanvasController(initial: Note) {
             if (v == _tool) return
             _tool = v
             finishTextEdit()
-            // A cycle-button press mid-drag lets the drag finish on the selection first; see toolEnd.
+            closeSelectionMenu()
+            // A tool change mid-drag lets the drag finish on the selection first; see toolEnd.
             if (v != Tool.SELECT && !gestures.active) clearSelection()
         }
 
@@ -89,7 +95,10 @@ class CanvasController(initial: Note) {
     /** Body font size of new text boxes, canvas units. */
     var textSize by mutableFloatStateOf(DEFAULT_TEXT_SIZE)
 
-    /** Ids of the selected elements, in no particular order. Every id is in the note. */
+    /**
+     * Ids of the selected elements, in no particular order. Every id is in the note, and a group
+     * is either wholly selected or not at all.
+     */
     var selection by mutableStateOf<Set<String>>(emptySet())
         private set
 
@@ -97,6 +106,62 @@ class CanvasController(initial: Note) {
 
     /** The union of the selected elements' bounds, or null when nothing is selected. */
     val selectionBounds: Rect? get() = if (selection.isEmpty()) null else Selection.bounds(_note.value.elements, selection)
+
+    /**
+     * The selection's box: a lone shape's, text box's or image's turned frame, otherwise the
+     * selection's bounds. Null when nothing is selected.
+     */
+    internal fun selectionFrame(): SelectionFrame? {
+        val ids = selection
+        if (ids.isEmpty()) return null
+        val only = if (ids.size == 1) _note.value.element(ids.first()) else null
+        return when (only) {
+            is Shape -> SelectionFrame(only.frame.inflate(only.width / 2f), only.rotation)
+            is TextBox -> SelectionFrame(only.frame, only.rotation)
+            is Image -> SelectionFrame(only.frame, only.rotation)
+            else -> selectionBounds?.let { SelectionFrame(it, 0f) }
+        }
+    }
+
+    /** Whether the long-press menu is open over the selection. */
+    var selectionMenuOpen by mutableStateOf(false)
+        private set
+
+    /** Opens the selection menu, if something is selected. */
+    fun openSelectionMenu() {
+        if (selection.isNotEmpty()) selectionMenuOpen = true
+    }
+
+    fun closeSelectionMenu() {
+        selectionMenuOpen = false
+    }
+
+    /** True when the selection holds two or more groups or ungrouped elements, so it can be grouped. */
+    val canGroup: Boolean get() = Groups.units(_note.value.elements, selection) >= 2
+
+    /** True when the selection is exactly one group. */
+    val canUngroup: Boolean get() = Groups.soleGroup(_note.value.elements, selection) != null
+
+    /**
+     * The selection's box on screen, in view pixels, around its (turned) frame and its handles'
+     * padding, or null when nothing is selected. The selection menu is placed against it.
+     */
+    fun selectionScreenBounds(): Rect? {
+        val f = selectionFrame() ?: return null
+        val v = viewport
+        val xy = f.corners(ToolGestures.SELECTION_PAD_DP / v.zoom)
+        var l = Float.POSITIVE_INFINITY
+        var t = Float.POSITIVE_INFINITY
+        var r = Float.NEGATIVE_INFINITY
+        var b = Float.NEGATIVE_INFINITY
+        for (i in 0 until 4) {
+            val x = v.toScreenX(xy[i * 2])
+            val y = v.toScreenY(xy[i * 2 + 1])
+            l = minOf(l, x); r = maxOf(r, x)
+            t = minOf(t, y); b = maxOf(b, y)
+        }
+        return Rect.fromEdges(l, t, r, b)
+    }
 
     /**
      * The text box being edited, as it was when editing began, or null. A new box is not in the
@@ -129,7 +194,7 @@ class CanvasController(initial: Note) {
     /** When on, only a stylus draws and fingers pan and zoom. */
     var penOnly by mutableStateOf(true)
 
-    /** Swaps the pen's side buttons: the secondary erases and the primary cycles tools. */
+    /** Swaps the pen's side buttons: the secondary erases while held and the primary switches to the pointer. */
     var swapStylusButtons by mutableStateOf(false)
 
     private var _darkMode by mutableStateOf(false)
@@ -214,6 +279,7 @@ class CanvasController(initial: Note) {
             listener?.onTextEditChanged()
         }
         selection = emptySet()
+        closeSelectionMenu()
         setNote(note)
         fitPending = true
         if (viewWidth > 0) initialFit()
@@ -232,6 +298,7 @@ class CanvasController(initial: Note) {
     fun undo() {
         finishTextEdit()
         gestures.cancel()
+        closeSelectionMenu()
         val n = history.undo(_note.value) ?: return
         setNote(n.copy(title = _note.value.title))
     }
@@ -240,6 +307,7 @@ class CanvasController(initial: Note) {
     fun redo() {
         finishTextEdit()
         gestures.cancel()
+        closeSelectionMenu()
         val n = history.redo(_note.value) ?: return
         setNote(n.copy(title = _note.value.title))
     }
@@ -255,11 +323,16 @@ class CanvasController(initial: Note) {
 
     // Selection commands. Each edit is one undo step; selection itself is not in the history.
 
-    /** Selects the elements with [ids] that are in the note, replacing the selection. */
+    /**
+     * Selects the elements with [ids] that are in the note, and the rest of any group they are
+     * in, replacing the selection. A changed selection closes the selection menu.
+     */
     fun select(ids: Set<String>) {
-        val present = if (ids.isEmpty()) emptySet() else _note.value.elements.mapNotNullTo(HashSet()) { e -> e.id.takeIf { it in ids } }
+        val elements = _note.value.elements
+        val present = if (ids.isEmpty()) emptySet() else Groups.expand(elements, elements.mapNotNullTo(HashSet()) { e -> e.id.takeIf { it in ids } })
         if (present == selection) return
         selection = present
+        closeSelectionMenu()
         overlayChanged()
     }
 
@@ -293,6 +366,24 @@ class CanvasController(initial: Note) {
 
     fun sendToBack() = restack { it.sendToBack(selection) }
 
+    /**
+     * Puts the selection in one new group, replacing any groups in it, and gathers it into one
+     * run of the stacking order where its topmost element was. Needs [canGroup].
+     */
+    fun groupSelection() {
+        if (!canGroup) return
+        val ids = selection
+        val group = Element.newId()
+        edit { it.copy(elements = Groups.group(it.elements, ids, group)) }
+    }
+
+    /** Takes the selected elements out of their groups; they stay selected. */
+    fun ungroupSelection() {
+        val ids = selection
+        if (ids.isEmpty()) return
+        edit { it.copy(elements = Groups.ungroup(it.elements, ids)) }
+    }
+
     private fun restack(f: (List<Element>) -> List<Element>) {
         if (selection.isEmpty()) return
         edit { it.copy(elements = f(it.elements)) }
@@ -304,6 +395,10 @@ class CanvasController(initial: Note) {
     /** Scales the selection by [factor] (> 0) about ([originX], [originY]), canvas units; strokes' widths scale too. */
     fun scaleSelection(factor: Float, originX: Float, originY: Float) =
         transformSelection(selection, Similarity.scale(factor, originX, originY))
+
+    /** Turns the selection by [radians] (clockwise on screen) about ([originX], [originY]), canvas units. */
+    fun rotateSelection(radians: Float, originX: Float, originY: Float) =
+        transformSelection(selection, Similarity.rotate(radians, originX, originY))
 
     internal fun transformSelection(ids: Set<String>, t: Similarity) {
         if (ids.isEmpty() || t.isIdentity) return
@@ -336,8 +431,8 @@ class CanvasController(initial: Note) {
 
     /**
      * Ends the text edit, if any, as one undoable step: the box gets the typed markdown and its
-     * frame's height becomes the laid-out height. A box left blank is removed (a new one is never
-     * added).
+     * frame's height becomes the laid-out height, keeping a turned box's top-left corner where it
+     * is. A box left blank is removed (a new one is never added).
      */
     fun finishTextEdit() {
         val box = editingText ?: return
@@ -352,12 +447,20 @@ class CanvasController(initial: Note) {
         }
         val typed = box.copy(markdown = md)
         val height = max(MIN_TEXT_HEIGHT, textMeasurer(typed))
-        val done = typed.copy(frame = typed.frame.copy(height = height))
+        val done = typed.copy(frame = resized(typed.frame, typed.rotation, height))
         edit { n ->
             if (isNew) n.copy(elements = n.elements + done)
             else n.copy(elements = n.elements.map { if (it.id == done.id) done else it })
         }
         overlayChanged()
+    }
+
+    // A box turns about its frame's centre, so a new height would move a turned box's top-left
+    // corner; the frame shifts so that the corner, where the text starts, stays put.
+    private fun resized(frame: Rect, rotation: Float, height: Float): Rect {
+        if (rotation == 0f) return frame.copy(height = height)
+        val dy = (height - frame.height) / 2f
+        return frame.copy(x = frame.x - dy * sin(rotation), y = frame.y + dy * cos(rotation) - dy, height = height)
     }
 
     /** What the canvas view's scene draws differently while a gesture or text edit runs. */
@@ -378,7 +481,10 @@ class CanvasController(initial: Note) {
 
     // Tool gestures from the canvas view, in canvas units.
 
-    internal fun toolStart(x: Float, y: Float) = gestures.start(x, y)
+    internal fun toolStart(x: Float, y: Float) {
+        closeSelectionMenu()
+        gestures.start(x, y)
+    }
 
     internal fun toolMove(x: Float, y: Float) = gestures.move(x, y)
 
@@ -437,9 +543,9 @@ class CanvasController(initial: Note) {
         return if (changed) n.copy(elements = elements) else n
     }
 
-    /** Cycles [tool] as the pen's side button does. */
-    fun cycleTool() {
-        tool = tool.next()
+    /** Makes [tool] the pointer, as the pen's pointer button does; it stays until another tool is picked. */
+    fun switchToPointer() {
+        tool = Tool.SELECT
     }
 
     // Viewport commands, in view pixels.
@@ -560,7 +666,10 @@ class CanvasController(initial: Note) {
         _note.value = n
         if (selection.isNotEmpty()) {
             val ids = n.elements.mapTo(HashSet()) { it.id }
-            if (!ids.containsAll(selection)) selection = selection.filterTo(HashSet()) { it in ids }
+            val kept = if (ids.containsAll(selection)) selection else selection.filterTo(HashSet()) { it in ids }
+            // An undo can bring back a group around part of the selection.
+            val whole = Groups.expand(n.elements, kept)
+            if (whole != selection) selection = whole
         }
         canUndo = history.canUndo
         canRedo = history.canRedo

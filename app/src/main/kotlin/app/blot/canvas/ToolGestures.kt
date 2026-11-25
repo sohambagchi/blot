@@ -1,5 +1,6 @@
 package app.blot.canvas
 
+import app.blot.core.edit.Angles
 import app.blot.core.edit.Selection
 import app.blot.core.edit.SelectionEdits
 import app.blot.core.edit.Similarity
@@ -12,9 +13,57 @@ import app.blot.core.model.Rect
 import app.blot.core.model.Shape
 import app.blot.core.model.TextBox
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
+
+/**
+ * The selection box: [rect] turned by [rotation] radians about its centre, in canvas units. It is
+ * a single shape's, text box's or image's own frame, so it turns with it; otherwise the
+ * selection's bounds, unturned.
+ */
+internal data class SelectionFrame(val rect: Rect, val rotation: Float) {
+    /** This frame after [t]: its centre moves, it scales, and it turns with the selection. */
+    fun transformed(t: Similarity): SelectionFrame =
+        if (t.isIdentity) this else SelectionFrame(t.frame(rect), Angles.add(rotation, t.rotation))
+
+    /** Corners grown by [pad], `x0, y0, …` from the top-left clockwise (before turning). */
+    fun corners(pad: Float): FloatArray = rect.rotatedCorners(rotation, pad)
+
+    /** Where the rotate handle sits: [gap] beyond the middle of the top edge grown by [pad]. */
+    fun rotateHandle(pad: Float, gap: Float): Point {
+        val d = rect.height / 2f + pad + gap
+        return Point(rect.centerX + d * sin(rotation), rect.centerY - d * cos(rotation))
+    }
+}
+
+/** A short label the canvas shows next to a handle while it is dragged; [x], [y] is the handle (canvas units). */
+internal data class Readout(val text: String, val x: Float, val y: Float, val dirX: Float, val dirY: Float)
+
+/** The texts of [Readout]. */
+internal object Readouts {
+    /**
+     * A turn as whole degrees with a sign, wrapped into (−180°, 180°]: "+15°", "−7°" (a minus
+     * sign, U+2212), "0°".
+     */
+    fun angle(radians: Float): String {
+        var d = Math.round(Math.toDegrees(radians.toDouble())).toInt() % 360
+        if (d > 180) d -= 360
+        if (d <= -180) d += 360
+        return when {
+            d > 0 -> "+$d°"
+            d < 0 -> "−${-d}°"
+            else -> "0°"
+        }
+    }
+
+    /** A scale factor with at most two decimals and no trailing zeros: "1x", "1.1x", "0.95x". */
+    fun scale(factor: Float): String =
+        java.math.BigDecimal(factor.toDouble()).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + "x"
+}
 
 /**
  * The select, shape, line and text tools' pen gestures, in canvas units. While a gesture runs
@@ -35,9 +84,23 @@ internal class ToolGestures(private val c: CanvasController) {
         val cornerX: Float, val cornerY: Float,
         val minFactor: Float,
     ) : Gesture(x0, y0)
+    private class Rotate(
+        x0: Float, y0: Float,
+        val ids: Set<String>,
+        val cx: Float, val cy: Float,
+        /** The frame's own rotation, which snapping lines up to 15° steps. */
+        val base: Float,
+        var lastAngle: Float,
+    ) : Gesture(x0, y0) {
+        /** The pen's turn about the centre since pen-down, unwrapped, radians. */
+        var turned = 0f
+    }
     private class DrawShape(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
     private class DrawLine(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
     private class PlaceText(x0: Float, y0: Float) : Gesture(x0, y0)
+
+    /** What a pen-down on the selection lands on. */
+    enum class Hit { NONE, ROTATE, CORNER, INSIDE }
 
     private var gesture: Gesture? = null
     private var lastX = 0f
@@ -57,14 +120,43 @@ internal class ToolGestures(private val c: CanvasController) {
     var draft: Element? = null
         private set
 
-    /** Applied to the selection while it is moved or scaled. */
+    /** Applied to the selection while it is moved, scaled or rotated. */
     var transform: Similarity = Similarity.IDENTITY
+        private set
+
+    /** The turn or scale being dragged, shown beside its handle; null otherwise. */
+    var readout: Readout? = null
         private set
 
     val active: Boolean get() = gesture != null
 
     /** Canvas units for [v] dp on screen at the current zoom. */
     private fun dp(v: Float) = v / c.viewport.zoom
+
+    /** What a pen-down at ([x], [y]) (canvas units) on the current selection would grab. */
+    fun hitSelection(x: Float, y: Float): Hit {
+        val frame = c.selectionFrame() ?: return Hit.NONE
+        val pad = dp(SELECTION_PAD_DP)
+        val reach = dp(HANDLE_REACH_DP)
+        val h = frame.rotateHandle(pad, dp(ROTATE_HANDLE_GAP_DP))
+        if (hypot(x - h.x, y - h.y) <= reach) return Hit.ROTATE
+        if (nearestCorner(frame, x, y) >= 0) return Hit.CORNER
+        return if (frame.rect.containsRotated(frame.rotation, x, y, pad + dp(PICK_DP))) Hit.INSIDE else Hit.NONE
+    }
+
+    private fun nearestCorner(frame: SelectionFrame, x: Float, y: Float): Int {
+        val corners = frame.corners(dp(SELECTION_PAD_DP))
+        var best = -1
+        var bestD = dp(HANDLE_REACH_DP)
+        for (k in 0 until 4) {
+            val d = hypot(x - corners[k * 2], y - corners[k * 2 + 1])
+            if (d <= bestD) {
+                best = k
+                bestD = d
+            }
+        }
+        return best
+    }
 
     fun start(x: Float, y: Float) {
         cancel()
@@ -86,29 +178,29 @@ internal class ToolGestures(private val c: CanvasController) {
 
     private fun selectStart(x: Float, y: Float): Gesture {
         val ids = c.selection
-        val bounds = c.selectionBounds ?: return if (c.selectMode == SelectMode.LASSO) Lasso(x, y) else Marquee(x, y)
-        val box = bounds.inflate(dp(SELECTION_PAD_DP))
-        val corners = floatArrayOf(box.left, box.top, box.right, box.top, box.right, box.bottom, box.left, box.bottom)
-        var best = -1
-        var bestD = dp(HANDLE_REACH_DP)
-        for (k in 0 until 4) {
-            val d = hypot(x - corners[k * 2], y - corners[k * 2 + 1])
-            if (d <= bestD) {
-                best = k
-                bestD = d
+        val frame = c.selectionFrame()
+        val fresh = if (c.selectMode == SelectMode.LASSO) Lasso(x, y) else Marquee(x, y)
+        frame ?: return fresh
+        val pad = dp(SELECTION_PAD_DP)
+        when (hitSelection(x, y)) {
+            Hit.ROTATE -> {
+                val r = frame.rect
+                return Rotate(x, y, ids, r.centerX, r.centerY, frame.rotation, atan2(y - r.centerY, x - r.centerX))
             }
+            Hit.CORNER -> {
+                val corners = frame.corners(pad)
+                val k = nearestCorner(frame, x, y)
+                val a = (k + 2) % 4
+                val size = max(frame.rect.width, frame.rect.height)
+                return Scale(
+                    x, y, ids,
+                    corners[a * 2], corners[a * 2 + 1], corners[k * 2], corners[k * 2 + 1],
+                    minFactor = if (size <= 0f) 1f else min(1f, MIN_SCALED_SIZE / size),
+                )
+            }
+            Hit.INSIDE -> return Move(x, y, ids)
+            Hit.NONE -> return fresh
         }
-        if (best >= 0) {
-            val a = (best + 2) % 4
-            val size = max(bounds.width, bounds.height)
-            return Scale(
-                x, y, ids,
-                corners[a * 2], corners[a * 2 + 1], corners[best * 2], corners[best * 2 + 1],
-                minFactor = if (size <= 0f) 1f else min(1f, MIN_SCALED_SIZE / size),
-            )
-        }
-        if (box.inflate(dp(PICK_DP)).contains(x, y)) return Move(x, y, ids)
-        return if (c.selectMode == SelectMode.LASSO) Lasso(x, y) else Marquee(x, y)
     }
 
     fun move(x: Float, y: Float) {
@@ -121,12 +213,21 @@ internal class ToolGestures(private val c: CanvasController) {
             is Marquee -> marquee = Rect.fromEdges(g.x0, g.y0, x, y)
             is Move -> transform = Similarity.translate(x - g.x0, y - g.y0)
             is Scale -> {
-                // The grabbed corner follows the pen, keeping the offset at which it was grabbed.
-                val f = SelectionEdits.cornerScale(
-                    g.anchorX, g.anchorY, g.cornerX, g.cornerY,
-                    x - (g.x0 - g.cornerX), y - (g.y0 - g.cornerY), g.minFactor,
-                )
+                val f = scaleOf(g, x, y)
                 transform = Similarity.scale(f, g.anchorX, g.anchorY)
+                val cx = transform.mapX(g.cornerX, g.cornerY)
+                val cy = transform.mapY(g.cornerX, g.cornerY)
+                readout = Readout(Readouts.scale(f), cx, cy, g.cornerX - g.anchorX, g.cornerY - g.anchorY)
+            }
+            is Rotate -> {
+                val a = atan2(y - g.cy, x - g.cx)
+                g.turned += Angles.normalize(a - g.lastAngle)
+                g.lastAngle = a
+                val turn = turnOf(g)
+                transform = if (turn == 0f) Similarity.IDENTITY else Similarity.rotate(turn, g.cx, g.cy)
+                val frame = c.selectionFrame()?.transformed(transform)
+                val h = frame?.rotateHandle(dp(SELECTION_PAD_DP), dp(ROTATE_HANDLE_GAP_DP)) ?: Point(x, y)
+                readout = Readout(Readouts.angle(turn), h.x, h.y, h.x - g.cx, h.y - g.cy)
             }
             is DrawShape -> draft = if (isTap(g)) null else Shape(
                 g.id, c.shapeKind, Snap.dragRect(g.x0, g.y0, x, y, c.constrainShapes), c.color, c.width, c.shapeFill,
@@ -136,6 +237,14 @@ internal class ToolGestures(private val c: CanvasController) {
         }
         c.overlayChanged()
     }
+
+    // The grabbed corner follows the pen, keeping the offset at which it was grabbed.
+    private fun scaleOf(g: Scale, x: Float, y: Float) = SelectionEdits.cornerScale(
+        g.anchorX, g.anchorY, g.cornerX, g.cornerY,
+        x - (g.x0 - g.cornerX), y - (g.y0 - g.cornerY), g.minFactor,
+    )
+
+    private fun turnOf(g: Rotate): Float = if (c.snapAngles) Snap.rotation(g.base, g.turned) else g.turned
 
     private fun line(g: DrawLine, x: Float, y: Float): Line {
         val end = if (c.snapAngles) Snap.angle(g.x0, g.y0, x, y) else Point(x, y)
@@ -170,11 +279,12 @@ internal class ToolGestures(private val c: CanvasController) {
                 c.transformSelection(g.ids, Similarity.translate(x - g.x0, y - g.y0))
             }
             is Scale -> {
-                val f = SelectionEdits.cornerScale(
-                    g.anchorX, g.anchorY, g.cornerX, g.cornerY,
-                    x - (g.x0 - g.cornerX), y - (g.y0 - g.cornerY), g.minFactor,
-                )
+                val f = scaleOf(g, x, y)
                 if (!tap && f != 1f) c.transformSelection(g.ids, Similarity.scale(f, g.anchorX, g.anchorY))
+            }
+            is Rotate -> {
+                val turn = turnOf(g)
+                if (turn != 0f) c.transformSelection(g.ids, Similarity.rotate(turn, g.cx, g.cy))
             }
             is DrawShape, is DrawLine -> {
                 val d = committedDraft
@@ -189,7 +299,7 @@ internal class ToolGestures(private val c: CanvasController) {
 
     private fun placeText(g: PlaceText, x: Float, y: Float, tap: Boolean) {
         if (tap) {
-            val hit = c.note.value.elements.lastOrNull { it is TextBox && it.frame.inflate(dp(PICK_DP)).contains(g.x0, g.y0) }
+            val hit = c.note.value.elements.lastOrNull { it is TextBox && it.frame.containsRotated(it.rotation, g.x0, g.y0, dp(PICK_DP)) }
             if (hit is TextBox) {
                 c.beginTextEdit(hit)
                 return
@@ -216,6 +326,7 @@ internal class ToolGestures(private val c: CanvasController) {
         marquee = null
         draft = null
         transform = Similarity.IDENTITY
+        readout = null
     }
 
     private fun pickAt(x: Float, y: Float): Set<String> =
@@ -240,8 +351,11 @@ internal class ToolGestures(private val c: CanvasController) {
         /** The selection box's gap around the selected elements' bounds, dp on screen. */
         const val SELECTION_PAD_DP = 6f
 
-        /** How far from a corner handle a pen-down grabs it, dp on screen. */
+        /** How far from a corner or rotate handle a pen-down grabs it, dp on screen. */
         const val HANDLE_REACH_DP = 22f
+
+        /** How far the rotate handle sits above the selection box's top edge, dp on screen. */
+        const val ROTATE_HANDLE_GAP_DP = 28f
 
         /** Lasso points closer than this to the last one (dp on screen) are skipped. */
         const val LASSO_STEP_DP = 2f

@@ -1,6 +1,8 @@
 package app.blot.core.model
 
 import app.blot.core.model.format.StrokePointsSerializer
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -23,6 +25,13 @@ sealed interface Element {
 
     /** An axis-aligned rectangle that contains everything the element draws. */
     val bounds: Rect
+
+    /**
+     * The group this element belongs to, or null. Elements that share a group id are selected,
+     * transformed and restacked together and lie next to each other in the stacking order.
+     * Groups don't nest.
+     */
+    val group: String?
 
     companion object {
         /** A fresh random element or note id. */
@@ -75,6 +84,7 @@ data class Stroke(
     val width: Float,
     val pen: PenKind = PenKind.PEN,
     val pressureReported: Boolean = true,
+    override val group: String? = null,
 ) : Element {
     init {
         require(points.isNotEmpty()) { "stroke $id has no points" }
@@ -121,6 +131,7 @@ data class Shape(
     val width: Float,
     val fill: Argb? = null,
     val rotation: Float = 0f,
+    override val group: String? = null,
 ) : Element {
     init {
         require(width >= 0f) { "shape $id has width $width" }
@@ -176,6 +187,7 @@ data class Line(
     val width: Float,
     val startArrow: Arrowhead = Arrowhead.NONE,
     val endArrow: Arrowhead = Arrowhead.NONE,
+    override val group: String? = null,
 ) : Element {
     init {
         require(points.size >= 2) { "line $id has ${points.size} points" }
@@ -209,7 +221,9 @@ data class Line(
  *
  * @property markdown CommonMark source.
  * @property fontSize body text size in canvas units.
+ * @property rotation radians about the frame's centre, clockwise on screen. Written only when non-zero.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("text")
 data class TextBox(
@@ -218,12 +232,14 @@ data class TextBox(
     val markdown: String,
     val fontSize: Float,
     val color: Argb,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val rotation: Float = 0f,
+    override val group: String? = null,
 ) : Element {
     init {
         require(fontSize > 0f) { "text $id has font size $fontSize" }
     }
 
-    override val bounds: Rect get() = frame
+    override val bounds: Rect get() = frame.rotatedBounds(rotation)
 }
 
 /**
@@ -245,13 +261,20 @@ data class AssetRef(val sha256: String, val extension: String) {
     val path: String get() = "assets/$sha256.$extension"
 }
 
-/** A bitmap image drawn into [frame], stretched to fit. Images are never recoloured in dark mode. */
+/**
+ * A bitmap image drawn into [frame], stretched to fit, and turned by [rotation] radians about the
+ * frame's centre (clockwise on screen; written only when non-zero). Images are never recoloured
+ * in dark mode.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @SerialName("image")
 data class Image(
     override val id: String,
     val asset: AssetRef,
     val frame: Rect,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val rotation: Float = 0f,
+    override val group: String? = null,
 ) : Element {
-    override val bounds: Rect get() = frame
+    override val bounds: Rect get() = frame.rotatedBounds(rotation)
 }

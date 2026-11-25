@@ -60,4 +60,10 @@ interface EditorActions {
 
     /** The title edit was committed with [title] as typed; it ends the edit. */
     fun setTitle(title: String) {}
+
+    /** An item of the selection menu was tapped: run it on the selection and close the menu. */
+    fun selectionCommand(command: SelectionCommand) {}
+
+    /** The selection menu was dismissed without a choice. */
+    fun closeSelectionMenu() {}
 }

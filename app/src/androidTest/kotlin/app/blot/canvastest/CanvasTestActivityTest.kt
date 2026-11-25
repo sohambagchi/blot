@@ -97,27 +97,27 @@ class CanvasTestActivityTest {
     }
 
     @Test
-    fun secondaryButtonCyclesToolsHoveringAndTouching() {
+    fun secondaryButtonSwitchesToThePointerHoveringAndTouching() {
         launch().use { s ->
             val o = origin(s)
             val seen = ArrayList<Tool>()
-            repeat(3) {
+            repeat(2) {
                 // A hovering pen always jitters; identical positions may be dropped on the way.
                 hover(o, 500f + it * 4, 300f, MotionEvent.BUTTON_STYLUS_SECONDARY)
                 hover(o, 502f + it * 4, 301f, 0)
                 seen += read(s) { it.controller.tool }
             }
-            assertEquals(listOf(Tool.PAN, Tool.SELECT, Tool.PEN), seen)
+            // It stays the pointer after release, and pressing again doesn't cycle on.
+            assertEquals(listOf(Tool.SELECT, Tool.SELECT), seen)
 
-            // Pressed while touching: the stroke goes on, the next one pans.
+            // Pressed while touching: the stroke goes on, the next gesture is the pointer's.
+            s.onActivity { it.controller.tool = Tool.PEN }
             stylusStroke(o, floatArrayOf(300f, 310f, 320f, 330f), floatArrayOf(300f, 300f, 300f, 300f),
                 buttonsAt = { if (it == 2) MotionEvent.BUTTON_STYLUS_SECONDARY else 0 })
-            assertEquals(Tool.PAN, read(s) { it.controller.tool })
+            assertEquals(Tool.SELECT, read(s) { it.controller.tool })
             assertEquals(1, read(s) { it.controller.note.value.elements.size })
-            val before = read(s) { it.controller.viewport }
-            stylusStroke(o, floatArrayOf(300f, 350f, 400f), floatArrayOf(300f, 300f, 300f))
+            stylusStroke(o, floatArrayOf(300f, 350f, 400f), floatArrayOf(400f, 400f, 400f))
             assertEquals(1, read(s) { it.controller.note.value.elements.size })
-            assertEquals(before.offsetX + 100f, read(s) { it.controller.viewport.offsetX }, 0.01f)
         }
     }
 

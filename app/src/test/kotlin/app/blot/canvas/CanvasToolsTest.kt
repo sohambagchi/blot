@@ -218,7 +218,7 @@ class CanvasToolsTest {
         c.tool = Tool.SELECT
         c.select(setOf("s", "missing"))
         assertEquals(setOf("s"), c.selection)
-        c.cycleTool()
+        c.tool = Tool.PEN
         assertEquals(Tool.PEN, c.tool)
         assertTrue(c.selection.isEmpty())
     }

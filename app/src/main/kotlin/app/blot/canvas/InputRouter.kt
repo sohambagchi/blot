@@ -10,11 +10,11 @@ interface InputTarget {
     val tool: Tool
     val penOnly: Boolean
 
-    /** Swaps the side buttons: the secondary erases and the primary cycles tools. */
+    /** Swaps the side buttons: the secondary erases while held and the primary switches to the pointer. */
     val swapButtons: Boolean
 
-    /** Moves [tool] to [Tool.next]. */
-    fun cycleTool()
+    /** Makes [tool] the pointer, [Tool.SELECT], until the user picks another tool. */
+    fun switchToPointer()
 
     fun inkStart(mode: InkMode, pointer: PointerKind, sample: InputSample)
     fun inkMove(samples: List<InputSample>)
@@ -47,7 +47,9 @@ interface InputTarget {
  * Turns pointer events into ink, erase and viewport gestures, following the pen-input ADR:
  * - A stylus does what [InputTarget.tool] says; holding the erase button (primary, or secondary
  *   when swapped) erases instead, read on every event, and releasing it returns to the tool.
- * - Pressing the cycle button (the other one), hovering or touching, calls [InputTarget.cycleTool].
+ * - Pressing the pointer button (the other one), hovering or touching, calls
+ *   [InputTarget.switchToPointer]; a gesture already running keeps its tool, so the pointer
+ *   starts with the next one.
  * - With [InputTarget.penOnly], fingers only navigate: one drags to pan, two pinch. Without it, one
  *   finger uses the tool and a second finger turns the gesture into a pinch, dropping the stroke.
  * - While a stylus gesture runs, finger pointers are ignored (a resting palm). A stylus landing
@@ -99,8 +101,8 @@ class InputRouter(private val target: InputTarget) {
     private fun buttons(buttons: Int) {
         val pressed = buttons and lastButtons.inv()
         lastButtons = buttons
-        val cycle = if (target.swapButtons) StylusButtons.PRIMARY else StylusButtons.SECONDARY
-        if (pressed and cycle != 0) target.cycleTool()
+        val pointer = if (target.swapButtons) StylusButtons.PRIMARY else StylusButtons.SECONDARY
+        if (pressed and pointer != 0) target.switchToPointer()
     }
 
     private val PointerKind.isStylus get() = this == PointerKind.STYLUS || this == PointerKind.ERASER

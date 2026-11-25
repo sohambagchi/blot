@@ -7,7 +7,7 @@ import app.blot.ui.theme.ThemeSetting
 @Immutable
 data class SettingsUiState(
     val theme: ThemeSetting = ThemeSetting.System,
-    /** False: primary erases while held, secondary cycles pen, pan and select. True swaps them. */
+    /** False: primary erases while held, secondary switches to the pointer. True swaps them. */
     val swapSideButtons: Boolean = false,
     val version: String = "",
     /** Developer setting: the low-latency buffer holds the whole note while inking, not just the ink. */

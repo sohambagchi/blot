@@ -149,6 +149,7 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
             ToolbarLayer(state, actions, maxWidth.value, maxHeight.value, obstacles.values.toList())
             MessageBar(state, actions, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
         }
+        SelectionMenuLayer(state, actions)
         if (state.exportOpen) ExportDialog(state, actions)
     }
 }

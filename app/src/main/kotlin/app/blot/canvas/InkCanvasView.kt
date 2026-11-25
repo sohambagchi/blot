@@ -14,13 +14,16 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.graphics.lowlatency.LowLatencyCanvasView
 import androidx.graphics.surface.SurfaceControlCompat
+import app.blot.R
 import app.blot.core.model.Element
 import app.blot.core.model.Note
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -90,7 +93,21 @@ class InkCanvasView(
     private var bufferHoldsContent = false
     private var swallowing = false
 
-    private val toolOverlay = ToolOverlayPainter(density)
+    private val toolOverlay = ToolOverlayPainter(
+        density,
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 1f, resources.displayMetrics),
+        runCatching { ResourcesCompat.getFont(context, R.font.inter_medium) }.getOrNull(),
+    )
+
+    private val longPress = LongPress(ViewConfiguration.get(context).scaledTouchSlop.toFloat())
+    private val longPressCheck = Runnable {
+        if (longPress.fire(SystemClock.uptimeMillis())) {
+            // The held press opens the menu instead of moving the selection or panning.
+            router.cancel()
+            swallowing = true
+            controller.openSelectionMenu()
+        }
+    }
 
     /** The text editor over the box being edited, while [CanvasController.editingText] is set. */
     var textEditor: EditText? = null
@@ -116,6 +133,8 @@ class InkCanvasView(
     override fun onDetachedFromWindow() {
         if (controller.listener === this) controller.listener = null
         router.cancel()
+        removeCallbacks(longPressCheck)
+        longPress.disarm()
         super.onDetachedFromWindow()
     }
 
@@ -190,8 +209,13 @@ class InkCanvasView(
         e.setTextColor(uiRenderer.color(box.color.value, controller.darkMode))
         val w = (box.frame.width * v.scale).roundToInt().coerceAtLeast(1)
         if (e.layoutParams.width != w) e.layoutParams = e.layoutParams.apply { width = w }
-        e.translationX = v.toScreenX(box.frame.x)
-        e.translationY = v.toScreenY(box.frame.y)
+        // Turned about its top-left corner, placed on the turned frame's top-left corner.
+        val corner = box.frame.rotatedCorners(box.rotation)
+        e.pivotX = 0f
+        e.pivotY = 0f
+        e.rotation = Math.toDegrees(box.rotation.toDouble()).toFloat()
+        e.translationX = v.toScreenX(corner[0])
+        e.translationY = v.toScreenY(corner[1])
     }
 
     /** Edits a text box's markdown source; Back commits it, as a tap outside does. */
@@ -245,10 +269,16 @@ class InkCanvasView(
             controller.finishTextEdit()
             swallowing = true
         }
+        if (a == MotionEvent.ACTION_DOWN && controller.selectionMenuOpen) {
+            // As does a touch on the canvas while the selection menu is open: it closes the menu.
+            controller.closeSelectionMenu()
+            swallowing = true
+        }
         if (swallowing) {
             if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) swallowing = false
             return true
         }
+        trackLongPress(event)
         if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_POINTER_DOWN) {
             // Same clock as System.nanoTime (CLOCK_MONOTONIC); whole milliseconds before API 34.
             downNanos = if (Build.VERSION.SDK_INT >= 34) event.eventTimeNanos else event.eventTime * 1_000_000
@@ -261,6 +291,32 @@ class InkCanvasView(
         }
         event.toInputEvent()?.let(router::onEvent)
         return true
+    }
+
+    /**
+     * Arms the selection menu's long press when a single pen or finger lands inside the
+     * selection with the pointer tool and no side button held; anything else breaks it.
+     */
+    private fun trackLongPress(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                removeCallbacks(longPressCheck)
+                longPress.disarm()
+                val buttons = event.buttonState and (MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_STYLUS_SECONDARY)
+                val v = controller.viewport
+                if (controller.tool == Tool.SELECT && buttons == 0 &&
+                    controller.toolGestures.hitSelection(v.toCanvasX(event.x), v.toCanvasY(event.y)) == ToolGestures.Hit.INSIDE
+                ) {
+                    longPress.arm(event.x, event.y, event.eventTime)
+                    postDelayed(longPressCheck, longPress.timeoutMs)
+                }
+            }
+            MotionEvent.ACTION_MOVE -> if (longPress.armed && !longPress.move(event.x, event.y)) removeCallbacks(longPressCheck)
+            else -> {
+                longPress.disarm()
+                removeCallbacks(longPressCheck)
+            }
+        }
     }
 
     override fun onHoverEvent(event: MotionEvent): Boolean {
@@ -282,7 +338,7 @@ class InkCanvasView(
         override val penOnly: Boolean get() = controller.penOnly
         override val swapButtons: Boolean get() = controller.swapStylusButtons
 
-        override fun cycleTool() = controller.cycleTool()
+        override fun switchToPointer() = controller.switchToPointer()
 
         override fun inkStart(mode: InkMode, pointer: PointerKind, sample: InputSample) {
             inkMode = mode

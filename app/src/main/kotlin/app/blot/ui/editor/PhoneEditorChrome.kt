@@ -34,6 +34,7 @@ fun PhoneEditorChrome(state: EditorUiState, actions: EditorActions, modifier: Mo
     Box(modifier.fillMaxSize().commitTitleOnTapElsewhere(state.titleEditing, titleEdit)) {
         content()
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { PhoneBars(state, actions, titleEdit) }
+        SelectionMenuLayer(state, actions)
         if (state.exportOpen) ExportDialog(state, actions)
     }
 }
@@ -68,7 +69,7 @@ private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions, edi
     ) {
         ToolButton("Pan and zoom", pan, false, { actions.setPenMode(PenMode.Hand) }, menuDot = null) { GlyphIcon(BlotIcons.Move, it) }
         ToolButton("Pen", pen, false, { actions.setPenMode(PenMode.Pen) }, menuDot = null) { GlyphIcon(BlotIcons.Pen, it) }
-        ToolButton("Lasso select", state.tool == Tool.Select, false, { actions.setSelectMode(SelectMode.Lasso) }, menuDot = null) {
+        ToolButton("Pointer: lasso select", state.tool == Tool.Select, false, { actions.setSelectMode(SelectMode.Lasso) }, menuDot = null) {
             GlyphIcon(BlotIcons.LassoPhone, it)
         }
         ToolButton("Text box", state.tool == Tool.Text, false, { actions.selectTool(Tool.Text) }, menuDot = null) {

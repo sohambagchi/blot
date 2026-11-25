@@ -146,8 +146,8 @@ private fun SettingsBody(settings: SettingsUiState, storage: StorageState, actio
         settings.swapSideButtons,
         { actions.setSwapSideButtons(!settings.swapSideButtons) },
         Modifier.padding(vertical = 6.dp),
-        hint = if (settings.swapSideButtons) "Primary cycles pen, pan and select; secondary erases while held"
-        else "Primary erases while held; secondary cycles pen, pan and select",
+        hint = if (settings.swapSideButtons) "Primary switches to the pointer; secondary erases while held"
+        else "Primary erases while held; secondary switches to the pointer",
         minHeight = 56.dp,
     )
     Rule(Modifier.padding(vertical = 4.dp))

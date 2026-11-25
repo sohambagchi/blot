@@ -7,7 +7,8 @@ package app.blot.core.model
  *
  * Forward and backward step past the next *overlapping* element rather than one index: in a
  * note of many small strokes the element one index away usually doesn't overlap the selection,
- * so a one-index step would show no change.
+ * so a one-index step would show no change. When that element is in a group, the step goes past
+ * the whole group, so groups stay contiguous as long as the selection holds whole groups.
  */
 
 /** Moves the selected elements to the front, above everything else. */
@@ -33,7 +34,8 @@ fun List<Element>.bringForward(selection: Set<String>): List<Element> {
     val top = indexOfLast { it.id in selection }
     if (top < 0) return this
     val boxes = selectedBounds(selection)
-    val target = (top + 1 until size).firstOrNull { i -> overlapsAny(this[i], boxes) } ?: return this
+    val hit = (top + 1 until size).firstOrNull { i -> overlapsAny(this[i], boxes) } ?: return this
+    val target = this[hit].group?.let { g -> indexOfLast { it.group == g && it.id !in selection } } ?: hit
     val selected = filter { it.id in selection }
     val out = ArrayList<Element>(size)
     for (i in indices) {
@@ -54,7 +56,8 @@ fun List<Element>.sendBackward(selection: Set<String>): List<Element> {
     val bottom = indexOfFirst { it.id in selection }
     if (bottom < 0) return this
     val boxes = selectedBounds(selection)
-    val target = (bottom - 1 downTo 0).firstOrNull { i -> overlapsAny(this[i], boxes) } ?: return this
+    val hit = (bottom - 1 downTo 0).firstOrNull { i -> overlapsAny(this[i], boxes) } ?: return this
+    val target = this[hit].group?.let { g -> indexOfFirst { it.group == g && it.id !in selection } } ?: hit
     val selected = filter { it.id in selection }
     val out = ArrayList<Element>(size)
     for (i in indices) {

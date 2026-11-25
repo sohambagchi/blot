@@ -75,4 +75,6 @@ open class InMemoryEditor(
     override fun dismissMessage() = update { copy(message = null) }
     override fun setTitleEditing(editing: Boolean) = update { copy(titleEditing = editing) }
     override fun setTitle(title: String) = update { copy(noteTitle = NoteTitle.clean(title), titleEditing = false) }
+    override fun selectionCommand(command: SelectionCommand) = closeSelectionMenu()
+    override fun closeSelectionMenu() = update { copy(selectionMenu = null) }
 }

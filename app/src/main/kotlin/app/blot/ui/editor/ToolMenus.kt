@@ -65,12 +65,11 @@ internal data class ToolGroup(
 internal fun penGlyph(mode: PenMode) = when (mode) {
     PenMode.Pen -> BlotIcons.Pen
     PenMode.Hand -> BlotIcons.Hand
-    PenMode.Pointer -> BlotIcons.Pointer
 }
 
 /** The five menu-bearing tool groups, with their items as in the design's `defs`. */
 internal fun toolGroups(s: EditorUiState, a: EditorActions): List<ToolGroup> {
-    val penNames = mapOf(PenMode.Pen to "Pen", PenMode.Hand to "Hand: pan and zoom", PenMode.Pointer to "Pointer: select objects")
+    val penNames = mapOf(PenMode.Pen to "Pen", PenMode.Hand to "Hand: pan and zoom")
     val eraserNames = mapOf(EraserMode.WholeStroke to "Erase whole strokes", EraserMode.PartOfStroke to "Erase part of a stroke")
     val eraserGlyphs = mapOf(EraserMode.WholeStroke to BlotIcons.Eraser, EraserMode.PartOfStroke to BlotIcons.EraseCut)
     val selectNames = mapOf(SelectMode.Lasso to "Lasso select", SelectMode.Rectangle to "Rectangle select")
@@ -109,10 +108,10 @@ internal fun toolGroups(s: EditorUiState, a: EditorActions): List<ToolGroup> {
             },
         ),
         ToolGroup(
-            ToolMenu.Select, Tool.Select, "Select", selectNames.getValue(s.selectMode), selectGlyphs.getValue(s.selectMode),
+            ToolMenu.Select, Tool.Select, "Pointer", selectNames.getValue(s.selectMode), selectGlyphs.getValue(s.selectMode),
             SelectMode.entries.mapIndexed { i, m ->
                 MenuItem.Choice(selectNames.getValue(m), selectGlyphs.getValue(m), m == s.selectMode, { a.setSelectMode(m) }, dividerBefore = i > 0)
-            },
+            } + MenuItem.Option("Snap angles to 15°", BlotIcons.SnapAngle, s.snapAngles, { a.setSnapAngles(!s.snapAngles) }, dividerBefore = true),
         ),
         ToolGroup(
             ToolMenu.Shape, Tool.Shape, "Shapes", shape.second, shape.third,

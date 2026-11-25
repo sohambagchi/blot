@@ -9,6 +9,8 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2149-pen-buttons-pointer-and-eraser](adr/2026-11-24-2149-pen-buttons-pointer-and-eraser.md) — secondary pen button switches to the pointer; primary held erases; fingers pan in pen-only mode
+- [2026-11-24-2149-rotation-and-groups-in-note-json](adr/2026-11-24-2149-rotation-and-groups-in-note-json.md) — optional rotation on text boxes and images, optional group ids, no format bump
 - [2026-11-24-2158-text-box-maths-ported-typesetter](adr/2026-11-24-2158-text-box-maths-ported-typesetter.md) — LaTeX maths in text boxes through a ported iosMath typesetter and a bundled Latin Modern Math subset
 - [2026-11-24-2145-ink-clipped-out-of-the-chrome](adr/2026-11-24-2145-ink-clipped-out-of-the-chrome.md) — in-progress ink is clipped out of the chrome's reported rectangles
 - [2026-11-24-2125-rename-to-blot](adr/2026-11-24-2125-rename-to-blot.md) — the app is called Blot, ID app.blot
@@ -23,7 +25,6 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 - [2026-11-24-1928-note-json-format](adr/2026-11-24-1928-note-json-format.md) — note.json layout, element types and the point codec
 - [2026-11-24-1934-note-directory-named-by-id](adr/2026-11-24-1934-note-directory-named-by-id.md) — note folders are named by a stable id, never by title
 - [2026-11-24-1934-note-json-wins-over-tmp](adr/2026-11-24-1934-note-json-wins-over-tmp.md) — save and recovery rules for note.json and its tmp
-- [2026-11-24-1912-pen-input-controls](adr/2026-11-24-1912-pen-input-controls.md) — side buttons cycle pen/pan/select and erase; "Pen only" in the colour panel
 - [2026-11-24-1909-ink-through-lowlatencycanvasview](adr/2026-11-24-1909-ink-through-lowlatencycanvasview.md) — strokes ink through LowLatencyCanvasView; our View handles pan, zoom and edits
 - [2026-11-24-1742-own-stroke-engine](adr/2026-11-24-1742-own-stroke-engine.md) — perfect-freehand port on graphics-core; Jetpack Ink as fallback
 - [2026-11-24-1742-canvas-custom-view-in-compose](adr/2026-11-24-1742-canvas-custom-view-in-compose.md) — front-buffered canvas View, Compose chrome
@@ -34,6 +35,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2149-pointer-input](changelog/2026-11-24-2149-pointer-input.md) — pointer tool, pen buttons, rotate and scale with readouts, press-and-hold menu, groups
 - [2026-11-24-2158-text-box-maths](changelog/2026-11-24-2158-text-box-maths.md) — text boxes fit their markdown and render $…$ and $$…$$ maths
 - [2026-11-24-2145-titles-and-ink-off-the-chrome](changelog/2026-11-24-2145-titles-and-ink-off-the-chrome.md) — notes can be named and renamed; ink never draws over the chrome
 - [2026-11-24-2125-rename-to-blot](changelog/2026-11-24-2125-rename-to-blot.md) — Screen Scratch renamed to Blot

@@ -1,6 +1,6 @@
 # Pen input controls: side buttons and the "Pen only" toggle
 
-**Status:** accepted
+**Status:** superseded by [2026-11-24-2149-pen-buttons-pointer-and-eraser](2026-11-24-2149-pen-buttons-pointer-and-eraser.md)
 
 **Context:** The TB-J616F's pen has two side buttons (`BUTTON_STYLUS_PRIMARY`, `BUTTON_STYLUS_SECONDARY`) and no eraser end. Android 12 can't flag palm touches. The design canvas puts the finger toggle in the colour panel. Supersedes [2026-11-24-1742-pen-only-inking-setting](2026-11-24-1742-pen-only-inking-setting.md).
 **Decision:**

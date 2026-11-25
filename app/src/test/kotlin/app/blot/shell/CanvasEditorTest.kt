@@ -12,6 +12,8 @@ import app.blot.core.model.Paper
 import app.blot.ui.editor.EditorUiState
 import app.blot.ui.editor.ExportOptions
 import app.blot.ui.editor.PenMode
+import app.blot.ui.editor.SelectMode
+import app.blot.ui.editor.SelectionCommand
 import app.blot.ui.editor.Tool
 import app.blot.ui.library.PageKind
 import org.junit.Assert.assertEquals
@@ -47,8 +49,9 @@ class CanvasEditorTest {
     fun toolbarToolsMapToCanvasTools() {
         editor.setPenMode(PenMode.Hand)
         assertEquals(CanvasTool.PAN, controller.tool)
-        editor.setPenMode(PenMode.Pointer)
+        editor.setSelectMode(SelectMode.Rectangle)
         assertEquals(CanvasTool.SELECT, controller.tool)
+        assertEquals(app.blot.canvas.SelectMode.RECTANGLE, controller.selectMode)
         editor.selectTool(Tool.Eraser)
         assertEquals(CanvasTool.ERASER, controller.tool)
         editor.selectTool(Tool.Shape)
@@ -71,22 +74,83 @@ class CanvasEditorTest {
         assertEquals(app.blot.canvas.EraserMode.PARTIAL, controller.eraserMode)
         // The pen keeps its last mode.
         editor.selectTool(Tool.Pen)
-        assertEquals(CanvasTool.SELECT, controller.tool)
+        assertEquals(CanvasTool.PAN, controller.tool)
         editor.setPenMode(PenMode.Pen)
         assertEquals(CanvasTool.PEN, controller.tool)
     }
 
     @Test
-    fun sideButtonCycleShowsOnTheToolbar() {
-        controller.cycleTool()
-        assertEquals(Tool.Pen to PenMode.Hand, editor.uiState.let { it.tool to it.penMode })
-        controller.cycleTool()
-        assertEquals(Tool.Pen to PenMode.Pointer, editor.uiState.let { it.tool to it.penMode })
-        controller.cycleTool()
-        assertEquals(Tool.Pen to PenMode.Pen, editor.uiState.let { it.tool to it.penMode })
+    fun pointerButtonShowsThePointerOnTheToolbarUntilAnotherToolIsPicked() {
+        editor.setSelectMode(SelectMode.Rectangle)
+        editor.selectTool(Tool.Pen)
+        controller.switchToPointer()
+        assertEquals(Tool.Select, editor.uiState.tool)
+        assertEquals(PenMode.Pen, editor.uiState.penMode)
+        assertEquals(SelectMode.Rectangle, editor.uiState.selectMode)
+        // It stays the pointer; tapping the pen picks the pen again.
+        assertEquals(Tool.Select, editor.uiState.tool)
+        editor.selectTool(Tool.Pen)
+        assertEquals(CanvasTool.PEN, controller.tool)
+        assertEquals(Tool.Pen, editor.uiState.tool)
+        // From the hand too.
+        editor.setPenMode(PenMode.Hand)
+        controller.switchToPointer()
+        assertEquals(Tool.Select, editor.uiState.tool)
         // A toolbar tool the canvas maps to SELECT stays shown while the canvas agrees.
         editor.selectTool(Tool.Image)
         assertEquals(Tool.Image, editor.uiState.tool)
+        controller.switchToPointer()
+        assertEquals(Tool.Image, editor.uiState.tool)
+    }
+
+    @Test
+    fun selectionMenuShowsGroupOrUngroupAndItsCommandsAreOneUndoStepEach() {
+        val els = listOf(
+            app.blot.core.model.Shape("a", app.blot.core.model.ShapeKind.RECTANGLE, app.blot.core.model.Rect(0f, 0f, 10f, 10f), Argb.BLACK, 1f),
+            app.blot.core.model.Shape("b", app.blot.core.model.ShapeKind.RECTANGLE, app.blot.core.model.Rect(5f, 5f, 10f, 10f), Argb.BLACK, 1f),
+        )
+        controller.load(controller.note.value.copy(elements = els))
+        controller.onViewSize(1000, 800, 2f)
+        editor.selectTool(Tool.Select)
+        controller.select(setOf("a", "b"))
+        assertEquals(null, editor.uiState.selectionMenu)
+        controller.openSelectionMenu()
+        val menu = editor.uiState.selectionMenu!!
+        assertTrue(menu.canGroup)
+        assertFalse(menu.canUngroup)
+        // The anchor is the selection box in dp: 0–15 canvas units at 100% grown by half the outline, padded by 6 dp.
+        assertEquals(-6.5f, menu.anchor.left, 0.01f)
+        assertEquals(21.5f, menu.anchor.right, 0.01f)
+
+        editor.selectionCommand(SelectionCommand.Group)
+        assertEquals(null, editor.uiState.selectionMenu)
+        assertTrue(controller.note.value.elements.all { it.group != null })
+        controller.clearSelection()
+        controller.select(setOf("a"))
+        assertEquals(setOf("a", "b"), controller.selection)
+        controller.openSelectionMenu()
+        assertTrue(editor.uiState.selectionMenu!!.canUngroup)
+        assertFalse(editor.uiState.selectionMenu!!.canGroup)
+        editor.selectionCommand(SelectionCommand.Ungroup)
+        assertTrue(controller.note.value.elements.all { it.group == null })
+        controller.undo()
+        assertTrue(controller.note.value.elements.all { it.group != null })
+        controller.undo()
+        assertTrue(controller.note.value.elements.all { it.group == null })
+
+        controller.select(setOf("a"))
+        controller.openSelectionMenu()
+        assertFalse(editor.uiState.selectionMenu!!.canGroup)
+        assertFalse(editor.uiState.selectionMenu!!.canUngroup)
+        editor.selectionCommand(SelectionCommand.Duplicate)
+        assertEquals(3, controller.note.value.elements.size)
+        editor.selectionCommand(SelectionCommand.Delete)
+        assertEquals(2, controller.note.value.elements.size)
+        controller.undo()
+        controller.undo()
+        assertEquals(listOf("a", "b"), controller.note.value.elements.map { it.id })
+        editor.closeSelectionMenu()
+        assertFalse(controller.selectionMenuOpen)
     }
 
     @Test
