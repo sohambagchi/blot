@@ -17,7 +17,7 @@ android {
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.12.2"
+        versionName = "0.13.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
