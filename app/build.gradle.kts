@@ -25,7 +25,7 @@ android {
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.17.4"
+        versionName = "0.19.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -51,9 +51,15 @@ android {
             debug { signingConfig = signingConfigs.getByName("blot") }
             release { signingConfig = signingConfigs.getByName("blot") }
         }
+        // The release build plus keep rules for what the test runner loads from the app's classpath.
+        create("shrunk") {
+            initWith(getByName("release"))
+            matchingFallbacks += "release"
+            proguardFile("proguard-device-tests.pro")
+        }
     }
 
-    // `-Pblot.testBuildType=release` runs the device tests against the shrunk build.
+    // `-Pblot.testBuildType=shrunk` runs the device tests against the shrunk release code.
     testBuildType = providers.gradleProperty("blot.testBuildType").getOrElse("debug")
 
     buildFeatures { compose = true }

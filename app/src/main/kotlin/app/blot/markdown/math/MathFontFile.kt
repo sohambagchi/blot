@@ -102,7 +102,8 @@ internal class MathFontFile(bytes: ByteArray) {
     }
 
     companion object {
-        private const val RESOURCE = "blot-math.otf"
+        // Absolute: R8 moves this class to another package in release, which breaks a relative lookup.
+        private const val RESOURCE = "/app/blot/markdown/math/blot-math.otf"
 
         /** The bundled font: a subset of Latin Modern Math, see `scripts/subset-math-font.sh`. */
         val bundled: MathFontFile by lazy {
