@@ -25,7 +25,7 @@ android {
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.13.7"
+        versionName = "0.19.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -41,11 +41,20 @@ android {
     }
 
     buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            testProguardFiles("proguard-test-rules.pro")
+        }
         if (signingStore.exists()) {
             debug { signingConfig = signingConfigs.getByName("blot") }
             release { signingConfig = signingConfigs.getByName("blot") }
         }
     }
+
+    // `-Pblot.testBuildType=release` runs the device tests against the shrunk build.
+    testBuildType = providers.gradleProperty("blot.testBuildType").getOrElse("debug")
 
     buildFeatures { compose = true }
 
