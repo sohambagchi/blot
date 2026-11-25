@@ -1,6 +1,7 @@
 package app.screenscratch.ui.editor
 
 import app.screenscratch.core.model.Argb
+import app.screenscratch.ui.library.PageKind
 
 /**
  * What the editor chrome asks for. Each call is an intent; the implementation updates
@@ -40,8 +41,17 @@ interface EditorActions {
     fun share()
 
     fun back()
-    /** The page-layout chip was tapped. */
+    /** The page-layout chip was tapped: opens or closes the page menu. */
     fun openPageSettings()
     /** The zoom chip was tapped. */
     fun resetZoom()
+
+    fun setPageMenuOpen(open: Boolean) {}
+    fun setPageKind(kind: PageKind) {}
+    fun setPageLandscape(landscape: Boolean) {}
+    fun addPage() {}
+    fun removePage() {}
+
+    /** The notice in [EditorUiState.message] was shown long enough, or tapped. */
+    fun dismissMessage() {}
 }

@@ -10,7 +10,12 @@ data class SettingsUiState(
     /** False: primary erases while held, secondary cycles pen, pan and select. True swaps them. */
     val swapSideButtons: Boolean = false,
     val version: String = "",
+    /** Developer setting: the low-latency buffer holds the whole note while inking, not just the ink. */
+    val frontBufferWholeNote: Boolean = false,
 )
+
+/** The debug screens reachable from the developer section under About. */
+enum class DebugScreen { PenTest, CanvasTest, UiPreview }
 
 /** Settings intents, including the storage folder's. */
 interface SettingsActions {
@@ -22,4 +27,7 @@ interface SettingsActions {
     fun regrantFolder()
     /** Forgets the folder and releases its grant; the notes on disk stay. */
     fun forgetFolder()
+
+    fun setFrontBufferWholeNote(on: Boolean) {}
+    fun openDebugScreen(screen: DebugScreen) {}
 }

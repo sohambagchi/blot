@@ -1,5 +1,6 @@
 package app.screenscratch.ui.editor
 
+import androidx.compose.ui.geometry.Rect
 import kotlin.math.max
 import kotlin.math.min
 
@@ -12,8 +13,25 @@ object ToolbarGeometry {
     /** Top of the portrait rail in the design: below the back pill (16 + 52 + 16). */
     const val RAIL_TOP = 84f
 
-    /** The top-left corner of a bar of [w] × [h] for [placement] in a [cw] × [ch] window. */
-    fun topLeft(placement: ToolbarPlacement?, w: Float, h: Float, cw: Float, ch: Float): Pair<Float, Float> {
+    /**
+     * The top-left corner of a bar of [w] × [h] for [placement] in a [cw] × [ch] window. A bar
+     * that would cover one of [obstacles] moves vertically past it, [MARGIN] clear: below an
+     * obstacle in the top half of the window, above one in the bottom half.
+     */
+    fun topLeft(placement: ToolbarPlacement?, w: Float, h: Float, cw: Float, ch: Float, obstacles: List<Rect> = emptyList()): Pair<Float, Float> {
+        val (x, y) = placed(placement, w, h, cw, ch)
+        var ny = y
+        repeat(obstacles.size) {
+            for (o in obstacles) {
+                if (x < o.right && x + w > o.left && ny < o.bottom && ny + h > o.top) {
+                    ny = if (o.center.y < ch / 2f) o.bottom + MARGIN else o.top - MARGIN - h
+                }
+            }
+        }
+        return x to ny.coerceIn(MARGIN, max(MARGIN, ch - h - MARGIN))
+    }
+
+    private fun placed(placement: ToolbarPlacement?, w: Float, h: Float, cw: Float, ch: Float): Pair<Float, Float> {
         val maxX = max(MARGIN, cw - w - MARGIN)
         val maxY = max(MARGIN, ch - h - MARGIN)
         return when (placement) {

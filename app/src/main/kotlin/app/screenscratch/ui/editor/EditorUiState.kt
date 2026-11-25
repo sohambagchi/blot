@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import app.screenscratch.core.model.Argb
+import app.screenscratch.ui.library.PageKind
 import app.screenscratch.ui.theme.QuickInk
 
 /** The toolbar's tools. [Shape] and [Line] draw the kind chosen in their menus. */
@@ -83,6 +84,12 @@ data class EditorUiState(
     /** Page layout as shown on the bottom-right chip, e.g. "Infinite canvas" or "A4". */
     val pageLabel: String = "Infinite canvas",
     val zoomPercent: Int = 100,
+    /** The page menu above the page chip. */
+    val pageMenuOpen: Boolean = false,
+    val pageKind: PageKind = PageKind.Infinite,
+    /** Page count; ignored for [PageKind.Infinite]. */
+    val pageCount: Int = 1,
+    val pageLandscape: Boolean = false,
 
     val tool: Tool = Tool.Pen,
     val penMode: PenMode = PenMode.Pen,
@@ -114,6 +121,9 @@ data class EditorUiState(
     val exportOpen: Boolean = false,
     val export: ExportOptions = ExportOptions(),
     val exportInfo: ExportInfo = ExportInfo(),
+
+    /** A short notice over the canvas (a failed save, a recovered note); [EditorActions.dismissMessage] clears it. */
+    val message: String? = null,
 ) {
     companion object {
         /** The colour panel's stroke width presets. */
