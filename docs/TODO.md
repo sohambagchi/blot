@@ -8,7 +8,6 @@
 - [ ] 4 Tools: partial eraser, lasso select/move/scale, stacking-order commands, shapes, lines and arrows, text-box editing
 - [ ] 5 Image import and paste into markdown text boxes
 - [ ] 6 Export PNG, PDF and SVG; share
-- [ ] 7 Decide whether a single newline in a text box starts a new line (CommonMark says it's a space)
-- [ ] 8 Iterate the UI in the Claude Design canvas: https://claude.ai/artifact/EfhVLmtXRNi457wy83HBCP
-- [ ] 9 Public open-source release prep — details: [2026-11-24-1551-public-release](todo/2026-11-24-1551-public-release.md)
-- [ ] 10 Layers: deferred; stacking order until then (the design's layer panel is not built)
+- [ ] 7 Iterate the UI in the Claude Design canvas: https://claude.ai/artifact/EfhVLmtXRNi457wy83HBCP
+- [ ] 8 Public open-source release prep — details: [2026-11-24-1551-public-release](todo/2026-11-24-1551-public-release.md)
+- [ ] 9 Layers: deferred; stacking order until then (the design's layer panel is not built)
