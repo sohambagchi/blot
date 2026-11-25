@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.screenscratch.core.model.Argb
+import app.screenscratch.ui.library.PageKind
 
 /**
  * [EditorActions] that only update an in-memory [EditorUiState]: the UI preview and tests use it
@@ -61,6 +62,14 @@ open class InMemoryEditor(
     override fun exportToFolder() = onExport(state.export)
     override fun share() = onShare(state.export)
     override fun back() = onBack()
-    override fun openPageSettings() {}
+    override fun openPageSettings() = setPageMenuOpen(!state.pageMenuOpen)
     override fun resetZoom() = update { copy(zoomPercent = 100) }
+
+    override fun setPageMenuOpen(open: Boolean) =
+        update { copy(pageMenuOpen = open, openMenu = if (open) null else openMenu, colourPanelOpen = if (open) false else colourPanelOpen) }
+    override fun setPageKind(kind: PageKind) = update { copy(pageKind = kind) }
+    override fun setPageLandscape(landscape: Boolean) = update { copy(pageLandscape = landscape) }
+    override fun addPage() = update { copy(pageCount = pageCount + 1) }
+    override fun removePage() = update { copy(pageCount = (pageCount - 1).coerceAtLeast(1)) }
+    override fun dismissMessage() = update { copy(message = null) }
 }

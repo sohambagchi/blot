@@ -50,6 +50,8 @@ data class LibraryUiState(
     val newNoteOpen: Boolean = false,
     val settingsOpen: Boolean = false,
     val settings: SettingsUiState = SettingsUiState(),
+    /** A short notice at the bottom (a failed delete, an unreadable note); [LibraryActions.dismissMessage] clears it. */
+    val message: String? = null,
 ) {
     /** The heading: the selected folder's name, or "All notes". */
     val heading: String get() = folders.firstOrNull { it.id == selectedFolder }?.name ?: "All notes"
@@ -71,4 +73,5 @@ interface LibraryActions : SettingsActions {
     fun setSettingsOpen(open: Boolean)
     /** The theme button in the header: flips between light and dark. */
     fun toggleDark()
+    fun dismissMessage() {}
 }

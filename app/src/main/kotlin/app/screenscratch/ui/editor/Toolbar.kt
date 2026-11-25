@@ -63,9 +63,10 @@ private const val MENU_OFFSET = 56f
 /**
  * The floating toolbar with its menus and colour panel, laid out over a [widthDp] × [heightDp]
  * window. Draws nothing outside the bar and its open panels, so the canvas below keeps its touches.
+ * The bar is moved off [obstacles] (dp rectangles in the same space, e.g. the corner pills).
  */
 @Composable
-internal fun ToolbarLayer(state: EditorUiState, actions: EditorActions, widthDp: Float, heightDp: Float) {
+internal fun ToolbarLayer(state: EditorUiState, actions: EditorActions, widthDp: Float, heightDp: Float, obstacles: List<Rect> = emptyList()) {
     val vertical = ToolbarGeometry.isVertical(state.toolbarPlacement, widthDp, heightDp)
     val towards = ToolbarGeometry.opensTowards(state.toolbarPlacement, widthDp, heightDp)
     var drag by remember { mutableStateOf<Offset?>(null) }
@@ -74,6 +75,7 @@ internal fun ToolbarLayer(state: EditorUiState, actions: EditorActions, widthDp:
     val density = LocalDensity.current.density
     val groups = toolGroups(state, actions)
     val current by rememberUpdatedState(state)
+    val avoid by rememberUpdatedState(obstacles)
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { geo.layerOrigin = it.positionInRoot() }) {
         if (state.openMenu != null) {
@@ -116,7 +118,7 @@ internal fun ToolbarLayer(state: EditorUiState, actions: EditorActions, widthDp:
             val bw = bar.width / d
             val bh = bar.height / d
             val (bx, by) = drag?.let { it.x to it.y }
-                ?: ToolbarGeometry.topLeft(current.toolbarPlacement, bw, bh, widthDp, heightDp)
+                ?: ToolbarGeometry.topLeft(current.toolbarPlacement, bw, bh, widthDp, heightDp, avoid)
             geo.topLeft = Offset(bx, by)
             geo.size = Offset(bw, bh)
             val panelIndex = if (current.colourPanelOpen && !current.toolbarCollapsed) 1 else -1

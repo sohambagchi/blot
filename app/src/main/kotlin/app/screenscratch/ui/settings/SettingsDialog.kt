@@ -1,6 +1,6 @@
 package app.screenscratch.ui.settings
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -96,6 +96,7 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun SettingsBody(settings: SettingsUiState, storage: StorageState, actions: SettingsActions, onLicences: () -> Unit) {
     val c = colors
+    var developer by remember { mutableStateOf(false) }
     SectionLabel("Storage")
     Row(
         Modifier.padding(top = 8.dp, bottom = 4.dp),
@@ -147,7 +148,12 @@ private fun SettingsBody(settings: SettingsUiState, storage: StorageState, actio
     Rule(Modifier.padding(vertical = 4.dp))
     SectionLabel("About")
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onLicences),
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).combinedClickable(
+            role = Role.Button,
+            onLongClickLabel = "Show developer options",
+            onLongClick = { developer = true },
+            onClick = onLicences,
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -160,6 +166,30 @@ private fun SettingsBody(settings: SettingsUiState, storage: StorageState, actio
         }
         GlyphIcon(ScratchIcons.ChevronRight, c.muted, size = 18.dp, strokeWidth = 2f)
     }
+    if (developer) DeveloperSection(settings, actions)
+}
+
+/** Hidden until the About row is long-pressed: the debug screens and the front-buffer mode. */
+@Composable
+private fun DeveloperSection(settings: SettingsUiState, actions: SettingsActions) {
+    val c = colors
+    Rule(Modifier.padding(vertical = 4.dp))
+    SectionLabel("Developer")
+    SwitchRow(
+        "Front buffer holds the whole note",
+        settings.frontBufferWholeNote,
+        { actions.setFrontBufferWholeNote(!settings.frontBufferWholeNote) },
+        Modifier.padding(vertical = 6.dp),
+        hint = if (settings.frontBufferWholeNote) "The note is re-rendered into the ink buffer after each pan; chrome over the canvas hides while writing"
+        else "Only ink goes into the buffer, over the canvas; chrome stays visible while writing",
+        minHeight = 56.dp,
+    )
+    Row(Modifier.padding(top = 6.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlineButton("Pen test", { actions.openDebugScreen(DebugScreen.PenTest) }, height = 40.dp, radius = 10.dp, horizontalPadding = 14.dp)
+        OutlineButton("Canvas test", { actions.openDebugScreen(DebugScreen.CanvasTest) }, height = 40.dp, radius = 10.dp, horizontalPadding = 14.dp)
+        OutlineButton("UI preview", { actions.openDebugScreen(DebugScreen.UiPreview) }, height = 40.dp, radius = 10.dp, horizontalPadding = 14.dp)
+    }
+    BasicText("Needs confirming on the tablet: which buffer mode feels faster there.", style = ScratchType.caption.copy(color = c.muted))
 }
 
 @Composable

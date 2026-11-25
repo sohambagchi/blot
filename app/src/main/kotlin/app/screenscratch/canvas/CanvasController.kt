@@ -133,6 +133,11 @@ class CanvasController(initial: Note) {
         fit()
     }
 
+    /** Redraws the canvas, e.g. after the text-box renderer's content changed (an image it shows has loaded). */
+    fun redraw() {
+        listener?.onAppearanceChanged()
+    }
+
     /** Cycles [tool] as the pen's side button does. */
     fun cycleTool() {
         tool = tool.next()

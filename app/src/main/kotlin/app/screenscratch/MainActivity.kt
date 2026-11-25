@@ -1,48 +1,63 @@
 package app.screenscratch
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
-import app.screenscratch.core.FORMAT_VERSION
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import app.screenscratch.canvastest.CanvasTestActivity
 import app.screenscratch.pentest.PenTestActivity
+import app.screenscratch.shell.AppModel
+import app.screenscratch.shell.ScreenScratchApp
+import app.screenscratch.storage.NoteFolder
 import app.screenscratch.ui.preview.UiPreviewActivity
+import app.screenscratch.ui.settings.DebugScreen
 
+/** The app's single activity: library and editor, switched by [AppModel.screen]. */
 class MainActivity : ComponentActivity() {
+    /** The app's state; tests read it. */
+    lateinit var app: AppModel
+        private set
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            val text = TextStyle(color = if (isSystemInDarkTheme()) Color(0xFFE8E8E8) else Color(0xFF111111))
-            Column(Modifier.safeDrawingPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                BasicText("Screen Scratch (format v$FORMAT_VERSION)", style = text)
-                BasicText(
-                    "UI preview",
-                    Modifier.clickable { startActivity(Intent(this@MainActivity, UiPreviewActivity::class.java)) },
-                    style = text,
-                )
-                BasicText(
-                    "Pen test",
-                    Modifier.clickable { startActivity(Intent(this@MainActivity, PenTestActivity::class.java)) },
-                    style = text,
-                )
-                BasicText(
-                    "Canvas test",
-                    Modifier.clickable { startActivity(Intent(this@MainActivity, CanvasTestActivity::class.java)) },
-                    style = text,
-                )
+        val folder = NoteFolder(applicationContext)
+        app = AppModel(applicationContext, folder, version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty())
+        val picker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree(), app::onTreePicked)
+        app.pickFolder = { picker.launch(it) }
+        app.openDebug = { screen ->
+            val cls = when (screen) {
+                DebugScreen.PenTest -> PenTestActivity::class.java
+                DebugScreen.CanvasTest -> CanvasTestActivity::class.java
+                DebugScreen.UiPreview -> UiPreviewActivity::class.java
             }
+            startActivity(Intent(this, cls))
         }
+        app.screenSizeDp = { resources.configuration.let { it.screenWidthDp.toFloat() to it.screenHeightDp.toFloat() } }
+        enableEdgeToEdge()
+        setContent { ScreenScratchApp(app, ::applyBarStyle) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        app.onResume()
+    }
+
+    override fun onStop() {
+        app.onStop()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        app.dispose()
+        super.onDestroy()
+    }
+
+    private fun applyBarStyle(dark: Boolean) {
+        val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        enableEdgeToEdge(style, style)
     }
 }

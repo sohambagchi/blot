@@ -1,38 +1,73 @@
 package app.screenscratch.ui.editor
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import app.screenscratch.ui.components.EllipsisText
 import app.screenscratch.ui.components.IconButton
+import app.screenscratch.ui.components.Rule
 import app.screenscratch.ui.components.floatingSurface
+import app.screenscratch.ui.icons.GlyphIcon
 import app.screenscratch.ui.icons.ScratchIcons
+import app.screenscratch.ui.library.PageGlyph
+import app.screenscratch.ui.library.PageKind
+import app.screenscratch.ui.library.label
+import app.screenscratch.ui.theme.Elevation
 import app.screenscratch.ui.theme.Radii
 import app.screenscratch.ui.theme.ScratchType
 import app.screenscratch.ui.theme.colors
+import kotlinx.coroutines.delay
 
 /** Window width below which the phone viewer replaces the tablet chrome. */
 val PhoneMaxWidth = 600.dp
 
+/** How long [EditorUiState.message] stays up. */
+const val MessageMillis = 4_000L
+
 /**
- * The editor screen: [content] (the canvas) fills the window and the chrome floats over it.
- * Picks the tablet chrome or the phone viewer by window width.
+ * The editor screen: [content] (the canvas) fills the window and the chrome floats over it,
+ * inside the safe-drawing insets. Picks the tablet chrome or the phone viewer by window width.
  */
 @Composable
 fun Editor(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -44,60 +79,74 @@ fun Editor(state: EditorUiState, actions: EditorActions, modifier: Modifier = Mo
 
 /**
  * The tablet editor chrome over [content]: back pill with the note title, the floating toolbar
- * with its menus and colour panel, the undo/redo/export pill, page and zoom chips, and the
- * export dialog.
+ * with its menus and colour panel, the undo/redo/export pill, page and zoom chips with the page
+ * menu, the message bar, and the export dialog. The toolbar keeps clear of the corner pills.
  */
 @Composable
 fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val c = colors
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    val density = LocalDensity.current.density
+    val obstacles = remember { mutableStateMapOf<String, Rect>() }
+    val record = { key: String -> Modifier.onGloballyPositioned { obstacles[key] = it.boundsInParent().let { r -> Rect(r.left / density, r.top / density, r.right / density, r.bottom / density) } } }
+    Box(modifier.fillMaxSize()) {
         content()
-        val full = !state.toolbarCollapsed
-        Row(
-            Modifier
-                .padding(16.dp)
-                .height(52.dp)
-                .floatingSurface(RoundedCornerShape(Radii.pill))
-                .padding(start = if (full) 5.dp else 4.dp, end = if (full) 15.dp else 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            IconButton(ScratchIcons.Back, "Back to library", actions::back)
-            if (full) TitleBlock(state)
-        }
-        Row(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .height(54.dp)
-                .floatingSurface(RoundedCornerShape(Radii.pill))
-                .padding(horizontal = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            IconButton(
-                ScratchIcons.Undo, "Undo", actions::undo, iconSize = 20.dp,
-                tint = if (state.canUndo) c.text else c.muted, enabled = state.canUndo,
-            )
-            if (full) {
-                IconButton(
-                    ScratchIcons.Redo, "Redo", actions::redo, iconSize = 20.dp,
-                    tint = if (state.canRedo) c.text else c.muted, enabled = state.canRedo,
-                )
-                IconButton(
-                    ScratchIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp,
-                    background = if (state.exportOpen) c.hover else Color.Transparent,
-                )
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            val full = !state.toolbarCollapsed
+            Row(
+                Modifier
+                    .padding(16.dp)
+                    .then(record("back"))
+                    .height(52.dp)
+                    .floatingSurface(RoundedCornerShape(Radii.pill))
+                    .padding(start = if (full) 5.dp else 4.dp, end = if (full) 15.dp else 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                IconButton(ScratchIcons.Back, "Back to library", actions::back)
+                if (full) TitleBlock(state, Modifier.widthIn(max = 280.dp))
             }
+            Row(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .then(record("undo"))
+                    .height(54.dp)
+                    .floatingSurface(RoundedCornerShape(Radii.pill))
+                    .padding(horizontal = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                IconButton(
+                    ScratchIcons.Undo, "Undo", actions::undo, iconSize = 20.dp,
+                    tint = if (state.canUndo) c.text else c.muted, enabled = state.canUndo,
+                )
+                if (full) {
+                    IconButton(
+                        ScratchIcons.Redo, "Redo", actions::redo, iconSize = 20.dp,
+                        tint = if (state.canRedo) c.text else c.muted, enabled = state.canRedo,
+                    )
+                    IconButton(
+                        ScratchIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp,
+                        background = if (state.exportOpen) c.hover else Color.Transparent,
+                    )
+                }
+            }
+            if (state.pageMenuOpen) {
+                Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setPageMenuOpen(false) } })
+            }
+            Row(
+                Modifier.align(Alignment.BottomEnd).padding(16.dp).then(record("chips")),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Chip(state.pageLabel, actions::openPageSettings, selected = state.pageMenuOpen)
+                Chip("${state.zoomPercent}%", actions::resetZoom)
+            }
+            if (state.pageMenuOpen) {
+                PageMenu(state, actions, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + 36.dp + 8.dp))
+            }
+            ToolbarLayer(state, actions, maxWidth.value, maxHeight.value, obstacles.values.toList())
+            MessageBar(state, actions, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
         }
-        Row(
-            Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Chip(state.pageLabel, actions::openPageSettings)
-            Chip("${state.zoomPercent}%", actions::resetZoom)
-        }
-        ToolbarLayer(state, actions, maxWidth.value, maxHeight.value)
         if (state.exportOpen) ExportDialog(state, actions)
     }
 }
@@ -116,17 +165,95 @@ internal fun TitleBlock(state: EditorUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Chip(label: String, onClick: () -> Unit) {
+private fun Chip(label: String, onClick: () -> Unit, selected: Boolean = false) {
     val c = colors
     val shape = RoundedCornerShape(Radii.menuItem)
     Box(
         Modifier
             .height(36.dp)
-            .floatingSurface(shape, elevation = null)
+            .floatingSurface(shape, elevation = null, fill = if (selected) c.hover else c.surface)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         BasicText(label, style = ScratchType.captionMedium.copy(color = c.muted))
+    }
+}
+
+/** The page chip's menu: page kind, orientation, and adding or removing pages. */
+@Composable
+internal fun PageMenu(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier) {
+    val c = colors
+    Column(
+        modifier
+            .width(240.dp)
+            .floatingSurface(RoundedCornerShape(Radii.menu), Elevation.Menu)
+            .padding(6.dp),
+    ) {
+        for (kind in listOf(PageKind.Infinite, PageKind.Screen, PageKind.A4, PageKind.Letter)) {
+            PageMenuRow(kind.label(), state.pageKind == kind, { actions.setPageKind(kind) }) { PageGlyph(kind, it, small = true) }
+        }
+        if (state.pageKind != PageKind.Infinite) {
+            Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+            if (state.pageKind != PageKind.Screen) {
+                PageMenuRow("Landscape", state.pageLandscape, { actions.setPageLandscape(!state.pageLandscape) }) {
+                    GlyphIcon(ScratchIcons.ScreenPage, it, size = 16.dp, strokeWidth = 2f)
+                }
+            }
+            PageMenuRow("Add page", false, actions::addPage) { GlyphIcon(ScratchIcons.Plus, it, size = 16.dp, strokeWidth = 2f) }
+            if (state.pageCount > 1) {
+                PageMenuRow("Remove last page", false, actions::removePage) { GlyphIcon(ScratchIcons.Delete, it, size = 16.dp, strokeWidth = 2f) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageMenuRow(label: String, chosen: Boolean, onClick: () -> Unit, icon: @Composable (Color) -> Unit) {
+    val c = colors
+    val shape = RoundedCornerShape(Radii.menuItem)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clip(shape)
+            .background(if (chosen) c.selected else Color.Transparent)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { selected = chosen }
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon(c.text) }
+        BasicText(label, style = (if (chosen) ScratchType.bodyStrong else ScratchType.body).copy(color = c.text))
+    }
+}
+
+/** [EditorUiState.message] as a bar that dismisses itself after [MessageMillis], or when tapped. */
+@Composable
+internal fun MessageBar(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier) {
+    val message = state.message ?: return
+    val dismiss by rememberUpdatedState(actions::dismissMessage)
+    LaunchedEffect(message) {
+        delay(MessageMillis)
+        dismiss()
+    }
+    Notice(message, dismiss, modifier)
+}
+
+/** A dark rounded notice with [text]; tapping it calls [onTap]. */
+@Composable
+fun Notice(text: String, onTap: () -> Unit, modifier: Modifier = Modifier) {
+    val c = colors
+    Box(
+        modifier
+            .padding(horizontal = 16.dp)
+            .widthIn(max = 560.dp)
+            .floatingSurface(RoundedCornerShape(Radii.field), Elevation.Menu, fill = c.active)
+            .clickable(role = Role.Button, onClick = onTap)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        BasicText(text, style = ScratchType.body.copy(color = c.activeText))
     }
 }

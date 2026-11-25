@@ -63,7 +63,10 @@ import app.screenscratch.ui.components.IconButton
 import app.screenscratch.ui.components.OutlineButton
 import app.screenscratch.ui.components.PrimaryButton
 import app.screenscratch.ui.components.floatingSurface
+import app.screenscratch.ui.editor.MessageMillis
+import app.screenscratch.ui.editor.Notice
 import app.screenscratch.ui.editor.PhoneMaxWidth
+import kotlinx.coroutines.delay
 import app.screenscratch.ui.icons.Glyph
 import app.screenscratch.ui.icons.GlyphIcon
 import app.screenscratch.ui.icons.ScratchIcons
@@ -125,6 +128,14 @@ fun Library(state: LibraryUiState, actions: LibraryActions, modifier: Modifier =
         }
         if (menuFor != null && anchor != null) {
             AnchoredMenu(anchor) { CardMenu(menuFor, actions) }
+        }
+        state.message?.let { message ->
+            val dismiss by rememberUpdatedState(actions::dismissMessage)
+            LaunchedEffect(message) {
+                delay(MessageMillis)
+                dismiss()
+            }
+            Notice(message, dismiss, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
         }
         if (state.settingsOpen) {
             SettingsDialog(state.settings, state.storage, actions) { actions.setSettingsOpen(false) }
