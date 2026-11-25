@@ -9,6 +9,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2236-format-2-shape-kinds-and-line-routes](adr/2026-11-24-2236-format-2-shape-kinds-and-line-routes.md) — format 2 adds shape kinds and line routes; notes are written at the lowest version they need
 - [2026-11-24-2213-fixed-signing-key-outside-the-repo](adr/2026-11-24-2213-fixed-signing-key-outside-the-repo.md) — builds sign with ~/.android/blot.jks so updates install over each other
 - [2026-11-24-2149-pen-buttons-pointer-and-eraser](adr/2026-11-24-2149-pen-buttons-pointer-and-eraser.md) — secondary pen button switches to the pointer; primary held erases; fingers pan in pen-only mode
 - [2026-11-24-2149-rotation-and-groups-in-note-json](adr/2026-11-24-2149-rotation-and-groups-in-note-json.md) — optional rotation on text boxes and images, optional group ids, no format bump
@@ -36,6 +37,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2236-shapes-and-line-routes](changelog/2026-11-24-2236-shapes-and-line-routes.md) — every shape kind and elbow and curved lines draw
 - [2026-11-24-2149-pointer-input](changelog/2026-11-24-2149-pointer-input.md) — pointer tool, pen buttons, rotate and scale with readouts, press-and-hold menu, groups
 - [2026-11-24-2158-text-box-maths](changelog/2026-11-24-2158-text-box-maths.md) — text boxes fit their markdown and render $…$ and $$…$$ maths
 - [2026-11-24-2145-titles-and-ink-off-the-chrome](changelog/2026-11-24-2145-titles-and-ink-off-the-chrome.md) — notes can be named and renamed; ink never draws over the chrome
