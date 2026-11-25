@@ -11,9 +11,10 @@ import java.nio.file.StandardCopyOption
  */
 internal class LibraryIndex(private val file: File, private val rootKey: String) {
     /**
-     * [dirModified] is the note directory's modified time when [summary] was taken, or null when
-     * the store itself just wrote the note and the new time is not known yet. [summary] is null
-     * for a directory that holds no note.
+     * [dirModified] is the note directory's modified time when [summary] was taken; null when
+     * the store itself just wrote the note and the new time is not known yet;
+     * [TreeEntry.UNKNOWN_TIME] when the time can't be trusted and the note must be read again.
+     * [summary] is null for a directory that holds no note.
      */
     data class Entry(val dirModified: Long?, val summary: NoteSummary?)
 

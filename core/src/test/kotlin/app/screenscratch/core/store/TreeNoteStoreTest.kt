@@ -21,7 +21,11 @@ class TreeNoteStoreTest {
     private val tree by lazy { CountingTree(JavaFileTree(rootDir)) }
     private var summarized = 0
 
-    private fun store(t: FileTree<File> = tree) = TreeNoteStore(t, indexDir, { summarized++; TestNotes.meta(it) })
+    /** A minute ahead, so what the test just wrote is old enough for its time to be trusted. */
+    private var now = System.currentTimeMillis() + 60_000
+
+    private fun store(t: FileTree<File> = tree) =
+        TreeNoteStore(t, indexDir, { summarized++; TestNotes.meta(it) }, clock = { now })
 
     private fun NoteStore.text(id: NoteId) = readNote(id) { TestNotes.parse(it) }
 
@@ -238,6 +242,27 @@ class TreeNoteStoreTest {
         summarized = 0
         assertEquals(again, s.rebuildIndex())
         assertEquals(5, summarized)
+    }
+
+    @Test
+    fun changesWithinOneTimestampTickAreNotMissed() {
+        now = System.currentTimeMillis()
+        val s = store()
+        val id = s.create(TestNotes.bytes("A", 1), NoteMeta("A", 1))
+        s.list()
+        val dir = noteDir(id)
+        val tick = dir.lastModified()
+
+        File(dir, "note.json").writeBytes(TestNotes.bytes("B", 2))
+        dir.setLastModified(tick)
+        summarized = 0
+        assertEquals("B", s.list().single().title)
+        assertEquals(1, summarized)
+
+        now += 10_000
+        s.list()
+        s.list()
+        assertEquals("once old enough, the time is trusted again", 2, summarized)
     }
 
     @Test

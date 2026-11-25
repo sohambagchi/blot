@@ -161,21 +161,28 @@ class TreeNoteStore<R : Any>(
      * Re-summarizes only directories whose modified time differs from the index. A note this
      * store just saved has no recorded time; it adopts the listed one without a re-read, so an
      * outside change landing between that save and this refresh goes unnoticed until the next.
+     *
+     * Times are coarse (Android 12's `File.lastModified()`, which the external-storage provider
+     * reports, has whole seconds; FAT has two), so a second change inside the same tick keeps the
+     * same time. As in git's "racy clean" rule, a time within [RACY_MS] of now is not trusted:
+     * it is recorded as unknown, and the note is read again on the next refresh.
      */
     private fun refresh(): List<NoteSummary> {
         val children = listRoot()
+        val now = clock()
+        fun trusted(t: Long) = if (t == TreeEntry.UNKNOWN_TIME || now - t < RACY_MS) TreeEntry.UNKNOWN_TIME else t
         var changed = false
         for (c in children) {
             val known = index.entries[c.name]
             if (known != null && c.lastModified != TreeEntry.UNKNOWN_TIME) {
                 if (known.dirModified == c.lastModified) continue
                 if (known.dirModified == null) {
-                    index.entries[c.name] = known.copy(dirModified = c.lastModified)
+                    index.entries[c.name] = known.copy(dirModified = trusted(c.lastModified))
                     changed = true
                     continue
                 }
             }
-            index.entries[c.name] = LibraryIndex.Entry(c.lastModified, summarizeDir(NoteId(c.name), c))
+            index.entries[c.name] = LibraryIndex.Entry(trusted(c.lastModified), summarizeDir(NoteId(c.name), c))
             changed = true
         }
         val names = children.mapTo(HashSet()) { it.name }
@@ -206,6 +213,7 @@ class TreeNoteStore<R : Any>(
         const val NOTE_TMP = "note.json.tmp"
         const val ASSETS = "assets"
         const val INDEX_FILE = "library-index.json"
+        private const val RACY_MS = 3_000L
 
         private val EXT = Regex("[a-z0-9]{1,10}")
         private val ID_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC)
