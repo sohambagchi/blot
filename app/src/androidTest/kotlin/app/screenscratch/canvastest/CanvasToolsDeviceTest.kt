@@ -126,7 +126,9 @@ class CanvasToolsDeviceTest {
             setTool(s, Tool.TEXT)
             stylus(o, floatArrayOf(300f, 300f), floatArrayOf(300f, 300f))
             assertNotNull(read(s) { it.canvasView!!.textEditor })
-            instrumentation.sendStringSync("Hello")
+            // Typed through the field, not injected keys: keys sent while the keyboard is still
+            // connecting arrive out of order on Android 12, and the edit flow is what's tested.
+            type(s, "Hello")
             // A tap outside commits; above the keyboard, which covers the lower part of the screen.
             stylus(o, floatArrayOf(900f, 900f), floatArrayOf(100f, 100f))
             assertNull(read(s) { it.canvasView!!.textEditor })
@@ -141,7 +143,7 @@ class CanvasToolsDeviceTest {
             stylus(o, floatArrayOf(x, x), floatArrayOf(y, y))
             assertEquals("Hello", read(s) { it.canvasView!!.textEditor!!.text.toString() })
             s.onActivity { it.canvasView!!.textEditor!!.setSelection(5) }
-            instrumentation.sendStringSync(" world")
+            type(s, " world")
             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             instrumentation.waitForIdleSync()
             val edited = read(s) { it.controller.note.value.elements.single() as TextBox }
@@ -151,6 +153,11 @@ class CanvasToolsDeviceTest {
             s.onActivity { it.controller.undo() }
             assertEquals("Hello", read(s) { (it.controller.note.value.elements.single() as TextBox).markdown })
         }
+    }
+
+    private fun type(s: ActivityScenario<CanvasTestActivity>, text: String) {
+        s.onActivity { a -> a.canvasView!!.textEditor!!.let { e -> e.text.insert(e.selectionStart, text) } }
+        instrumentation.waitForIdleSync()
     }
 
     // Injection.

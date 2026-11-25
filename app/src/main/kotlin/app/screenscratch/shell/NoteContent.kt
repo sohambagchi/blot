@@ -11,7 +11,9 @@ import app.screenscratch.core.model.AssetRef
 import app.screenscratch.core.model.TextBox
 import app.screenscratch.markdown.MarkdownImageLoader
 import app.screenscratch.markdown.MarkdownLayout
-import app.screenscratch.markdown.MarkdownTheme
+import app.screenscratch.markdown.drawTextBox
+import app.screenscratch.markdown.textBoxLayout
+import app.screenscratch.markdown.textBoxWidth
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -108,8 +110,7 @@ class NoteAssetImages(
 }
 
 /**
- * Draws text boxes as markdown with [MarkdownLayout], at the box's width in canvas units and its
- * font size. Layouts are cached by element id, source, width, font size, colour and theme, and
+ * Draws text boxes as markdown, laid out by [textBoxLayout] as every export does. Layouts are cached by element id, source, width, font size, colour and theme, and
  * built in full before they are shared, since the UI thread and the ink render thread both draw.
  * Thread-safe.
  *
@@ -138,21 +139,13 @@ class MarkdownTextBoxRenderer(
     val cachedCount: Int get() = synchronized(layouts) { layouts.size() }
 
     override fun draw(canvas: Canvas, box: TextBox, color: Int) {
-        val key = Key(box.id, box.markdown, box.frame.width.roundToInt().coerceAtLeast(1), box.fontSize, color, dark)
-        val layout = synchronized(layouts) { layouts.get(key) } ?: build(key).also { synchronized(layouts) { layouts.put(key, it) } }
-        canvas.save()
-        canvas.clipRect(box.frame.left, box.frame.top, box.frame.right, box.frame.bottom)
-        canvas.translate(box.frame.x, box.frame.y)
-        synchronized(layout) { layout.draw(canvas) }
-        canvas.restore()
+        val key = Key(box.id, box.markdown, textBoxWidth(box), box.fontSize, color, dark)
+        val layout = synchronized(layouts) { layouts.get(key) } ?: build(box, key).also { synchronized(layouts) { layouts.put(key, it) } }
+        synchronized(layout) { drawTextBox(canvas, box, layout) }
     }
 
-    private fun build(key: Key): MarkdownLayout {
-        // The same settings as export, so a text box looks the same on screen and in PNG, PDF and SVG:
-        // canvas units throughout (density 1), the font size as the base size.
-        val base = if (key.dark) MarkdownTheme.Dark else MarkdownTheme.Light
-        val theme = base.copy(textColor = key.color, baseTextSize = key.fontSize)
-        val layout = MarkdownLayout(key.markdown, key.width, theme, density = 1f, imageLoader = imageLoader)
+    private fun build(box: TextBox, key: Key): MarkdownLayout {
+        val layout = textBoxLayout(box, key.color, key.dark, imageLoader)
         synchronized(layout) {
             layout.height
             layout.decorations

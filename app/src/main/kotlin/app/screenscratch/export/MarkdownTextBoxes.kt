@@ -7,11 +7,11 @@ import app.screenscratch.core.model.TextBox
 import app.screenscratch.markdown.MarkdownDecoration
 import app.screenscratch.markdown.MarkdownImageLoader
 import app.screenscratch.markdown.MarkdownLayout
-import app.screenscratch.markdown.MarkdownTheme
+import app.screenscratch.markdown.drawTextBox
+import app.screenscratch.markdown.textBoxLayout
 
 /**
- * Text boxes through [MarkdownLayout] in canvas units (density 1, base size = the box's font
- * size, wrapped to the frame's width and clipped to the frame). [dark] picks the theme for
+ * Text boxes for one export, laid out by [textBoxLayout] as on screen. [dark] picks the theme for
  * muted text and code backgrounds; [paper] is the page colour the theme's task tick uses.
  * Not thread-safe; one per export.
  */
@@ -28,19 +28,10 @@ internal class MarkdownTextBoxes(
     private val layouts = HashMap<Key, MarkdownLayout>()
 
     fun layout(box: TextBox, color: Int): MarkdownLayout = layouts.getOrPut(Key(box, color)) {
-        val base = if (dark) MarkdownTheme.Dark else MarkdownTheme.Light
-        val theme = base.copy(textColor = color, background = paper, baseTextSize = box.fontSize)
-        MarkdownLayout(box.markdown, box.frame.width.toInt(), theme, density = 1f, imageLoader = images)
+        textBoxLayout(box, color, dark, images, paper)
     }
 
-    override fun draw(canvas: Canvas, box: TextBox, color: Int) {
-        val f = box.frame
-        canvas.save()
-        canvas.clipRect(f.left, f.top, f.right, f.bottom)
-        canvas.translate(f.x, f.y)
-        layout(box, color).draw(canvas)
-        canvas.restore()
-    }
+    override fun draw(canvas: Canvas, box: TextBox, color: Int) = drawTextBox(canvas, box, layout(box, color))
 
     /** The same layout as [draw], as lines and decorations for SVG. */
     fun svgText(box: TextBox, color: Int): SvgText {

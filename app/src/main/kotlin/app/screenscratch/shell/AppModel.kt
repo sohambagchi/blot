@@ -17,6 +17,7 @@ import app.screenscratch.canvas.FrontBufferContent
 import app.screenscratch.canvas.OutlineCache
 import app.screenscratch.canvas.SceneRenderer
 import app.screenscratch.core.FORMAT_VERSION
+import app.screenscratch.core.export.ExportAssets
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.format.NoteFormatException
 import app.screenscratch.core.model.format.NoteJson
@@ -337,8 +338,13 @@ class AppModel(
         library = library.copy(cardMenu = null)
         main.launch {
             try {
-                val note = withStore { it.readNote(NoteId(id)) { b -> NoteJson.decode(b.decodeToString()) }.value }
-                withContext(io) { exporter.export(note, options, target) }
+                val darkNow = dark
+                val job = withStore { store ->
+                    val nid = NoteId(id)
+                    val note = store.readNote(nid) { b -> NoteJson.decode(b.decodeToString()) }.value
+                    ExportJob(note, ExportAssets.of(store, nid), options, dark = darkNow)
+                }
+                exporter.export(job, target)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

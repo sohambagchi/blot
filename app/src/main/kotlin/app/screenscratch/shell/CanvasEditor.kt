@@ -200,6 +200,10 @@ class CanvasEditor(
         page = controller.note.value.page
     }
 
+    /** The canvas rectangle on screen, or null before the canvas has a size. */
+    fun visibleArea(): Rect? =
+        if (canvasSizePx.width > 0) controller.viewport.visibleRect(canvasSizePx.width, canvasSizePx.height) else null
+
     private fun areaSizes(): Map<ExportArea, IntSize> {
         val n = controller.note.value
         val out = HashMap<ExportArea, IntSize>()

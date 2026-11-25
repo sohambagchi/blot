@@ -5,7 +5,6 @@
   - [ ] 1.2 Check the pen-up switch, the first stroke after a pan, side buttons, palm resting, rotation and dark-mode colours
 - [ ] 2 Shapes the note can't hold yet (rounded rectangle, triangle, diamond, hexagon, parallelogram, cylinder) and elbow and curved lines; they draw rectangles and straight lines for now
 - [ ] 3 Image import and paste into markdown text boxes
-- [ ] 4 Join the PNG, PDF and SVG exporter to the editor's export dialog and library card menu, and share one markdown text-box renderer between screen and export
-- [ ] 5 Iterate the UI in the Claude Design canvas: https://claude.ai/artifact/EfhVLmtXRNi457wy83HBCP
-- [ ] 6 Public open-source release prep — details: [2026-11-24-1551-public-release](todo/2026-11-24-1551-public-release.md)
-- [ ] 7 Layers: deferred; stacking order until then (the design's layer panel is not built)
+- [ ] 4 Iterate the UI in the Claude Design canvas: https://claude.ai/artifact/EfhVLmtXRNi457wy83HBCP
+- [ ] 5 Public open-source release prep — details: [2026-11-24-1551-public-release](todo/2026-11-24-1551-public-release.md)
+- [ ] 6 Layers: deferred; stacking order until then (the design's layer panel is not built)
