@@ -38,7 +38,6 @@ import app.blot.ui.components.IconButton
 import app.blot.ui.components.Rule
 import app.blot.ui.components.boxShadow
 import app.blot.ui.components.floatingSurface
-import app.blot.ui.editor.ExportFormat
 import app.blot.ui.icons.Glyph
 import app.blot.ui.icons.GlyphIcon
 import app.blot.ui.icons.BlotIcons
@@ -172,11 +171,7 @@ internal fun CardMenu(id: String, actions: LibraryActions, modifier: Modifier = 
         }
         MenuRow(BlotIcons.Rename, "Rename", c.text) { actions.setRenaming(id) }
         Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-        MenuRow(BlotIcons.ExportPng, "Export PNG", c.text, done { actions.exportNote(id, ExportFormat.Png) })
-        MenuRow(BlotIcons.ExportPdf, "Export PDF", c.text, done { actions.exportNote(id, ExportFormat.Pdf) })
-        MenuRow(BlotIcons.ExportSvg, "Export SVG", c.text, done { actions.exportNote(id, ExportFormat.Svg) })
-        Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-        MenuRow(BlotIcons.ShareAlt, "Share…", c.text, done { actions.shareNote(id) })
+        MenuRow(BlotIcons.ShareAlt, "Export…", c.text, done { actions.openExport(id) })
         Rule(Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
         MenuRow(BlotIcons.Delete, "Delete", c.danger, done { actions.deleteNote(id) })
     }

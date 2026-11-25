@@ -1,5 +1,7 @@
 package app.blot.ui.library
 
+import app.blot.ui.editor.ExportArea
+import app.blot.ui.editor.ExportSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -139,6 +141,19 @@ fun Library(state: LibraryUiState, actions: LibraryActions, modifier: Modifier =
             Notice(message, dismiss, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
         }
         state.renaming?.let { id -> state.notes.firstOrNull { it.id == id } }?.let { note -> key(note.id) { RenameDialog(note, actions) } }
+        state.exporting?.let { e ->
+            ExportSheet(
+                subtitle = e.subtitle,
+                options = e.options,
+                info = e.info,
+                areas = listOf(ExportArea.WholeCanvas),
+                selectionAvailable = false,
+                onOptions = actions::setExportOptions,
+                onClose = actions::closeExport,
+                onSave = actions::exportToFolder,
+                onShare = actions::shareExport,
+            )
+        }
         if (state.settingsOpen) {
             SettingsDialog(state.settings, state.storage, actions) { actions.setSettingsOpen(false) }
         }

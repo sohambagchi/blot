@@ -2,7 +2,8 @@ package app.blot.ui.library
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
-import app.blot.ui.editor.ExportFormat
+import app.blot.ui.editor.ExportInfo
+import app.blot.ui.editor.ExportOptions
 import app.blot.ui.settings.SettingsActions
 import app.blot.ui.settings.SettingsUiState
 
@@ -53,6 +54,8 @@ data class LibraryUiState(
     val renaming: String? = null,
     val newNoteOpen: Boolean = false,
     val settingsOpen: Boolean = false,
+    /** The export dialog opened from a card menu, or null. */
+    val exporting: LibraryExport? = null,
     val settings: SettingsUiState = SettingsUiState(),
     /** A short notice at the bottom (a failed delete, an unreadable note); [LibraryActions.dismissMessage] clears it. */
     val message: String? = null,
@@ -60,6 +63,17 @@ data class LibraryUiState(
     /** The heading: the selected folder's name, or "All notes". */
     val heading: String get() = folders.firstOrNull { it.id == selectedFolder }?.name ?: "All notes"
 }
+
+/**
+ * The export dialog for note [id] as opened from its card: [subtitle] names the note and its
+ * pages; [info] carries the preview and the whole note's size.
+ */
+data class LibraryExport(
+    val id: String,
+    val subtitle: String,
+    val options: ExportOptions = ExportOptions(),
+    val info: ExportInfo = ExportInfo(),
+)
 
 /** What the library screen asks for; settings intents come from [SettingsActions]. */
 interface LibraryActions : SettingsActions {
@@ -75,8 +89,14 @@ interface LibraryActions : SettingsActions {
     fun setRenaming(id: String?)
     /** Renames note [id] to [title] as typed; blank leaves it untitled. Closes the dialog. */
     fun renameNote(id: String, title: String)
-    fun exportNote(id: String, format: ExportFormat)
-    fun shareNote(id: String)
+    /** Opens the export dialog for note [id]. */
+    fun openExport(id: String)
+    fun setExportOptions(options: ExportOptions)
+    fun closeExport()
+    /** Exports with the dialog's options to a document the user creates; closes the dialog when saved. */
+    fun exportToFolder()
+    /** Exports with the dialog's options and opens the share sheet. */
+    fun shareExport()
     fun deleteNote(id: String)
     fun setSettingsOpen(open: Boolean)
     /** The theme button in the header: flips between light and dark. */

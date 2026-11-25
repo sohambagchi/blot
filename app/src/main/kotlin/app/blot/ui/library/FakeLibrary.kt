@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.PathParser
 import app.blot.core.model.NoteTitle
-import app.blot.ui.editor.ExportFormat
+import app.blot.ui.editor.ExportOptions
 import app.blot.ui.theme.InkColors
 import app.blot.ui.theme.ThemeSetting
 
@@ -118,8 +118,18 @@ class FakeLibrary(
         refresh()
     }
 
-    override fun exportNote(id: String, format: ExportFormat) {}
-    override fun shareNote(id: String) {}
+    override fun openExport(id: String) {
+        val note = state.notes.firstOrNull { it.id == id } ?: return
+        state = state.copy(cardMenu = null, exporting = LibraryExport(id, note.title))
+    }
+    override fun setExportOptions(options: ExportOptions) {
+        state = state.copy(exporting = state.exporting?.copy(options = options))
+    }
+    override fun closeExport() {
+        state = state.copy(exporting = null)
+    }
+    override fun exportToFolder() = closeExport()
+    override fun shareExport() {}
 
     override fun deleteNote(id: String) {
         samples = samples.filter { it.id != id }

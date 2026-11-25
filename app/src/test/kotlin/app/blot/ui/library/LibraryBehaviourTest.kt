@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import app.blot.ui.LAND
 import app.blot.ui.theme.BlotTheme
 import app.blot.ui.theme.ThemeSetting
+import app.blot.ui.editor.ExportFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -62,6 +63,23 @@ class LibraryBehaviourTest {
         assertTrue(fake.state.notes.none { it.id == "crdt" })
         compose.onNodeWithContentDescription("Open Raft").performClick()
         assertEquals("raft", opened?.id)
+    }
+
+    @Test
+    fun cardMenuExportOpensTheExportDialog() {
+        val fake = FakeLibrary()
+        show(fake)
+        compose.onNodeWithContentDescription("More actions for CRDTs").performClick()
+        compose.onNodeWithText("Export PNG").assertDoesNotExist()
+        compose.onNodeWithText("Export…").performClick()
+        assertEquals("crdt", fake.state.exporting?.id)
+        compose.onNodeWithText("Export and share").assertExists()
+        // The library has no visible area or selection, so the area choice is hidden.
+        compose.onNodeWithText("Visible area").assertDoesNotExist()
+        compose.onNodeWithText("PDF").performClick()
+        assertEquals(ExportFormat.Pdf, fake.state.exporting?.options?.format)
+        compose.onNodeWithText("Save to folder").performClick()
+        assertEquals(null, fake.state.exporting)
     }
 
     @Test

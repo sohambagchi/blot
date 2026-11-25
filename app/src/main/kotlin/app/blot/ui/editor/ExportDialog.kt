@@ -62,51 +62,76 @@ fun exportSizeLabel(options: ExportOptions, sizes: Map<ExportArea, androidx.comp
     }
 }
 
-/** The export and share dialog (`Main-export`). */
+/** The editor's export and share dialog (`Main-export`). */
 @Composable
-internal fun ExportDialog(state: EditorUiState, actions: EditorActions) {
+internal fun ExportDialog(state: EditorUiState, actions: EditorActions) = ExportSheet(
+    subtitle = listOf(NoteTitle.display(state.noteTitle), state.pageLabel).filter { it.isNotEmpty() }.joinToString(" · "),
+    options = state.export,
+    info = state.exportInfo,
+    areas = ExportArea.entries,
+    selectionAvailable = state.hasSelection,
+    onOptions = actions::setExportOptions,
+    onClose = { actions.setExportOpen(false) },
+    onSave = actions::exportToFolder,
+    onShare = actions::share,
+)
+
+/**
+ * The export and share dialog, shared by the editor and the library's card menu. [areas] lists
+ * the area choices offered (the group is hidden when there is only one); [selectionAvailable]
+ * enables "Selection" when it is offered.
+ */
+@Composable
+fun ExportSheet(
+    subtitle: String,
+    options: ExportOptions,
+    info: ExportInfo,
+    areas: List<ExportArea>,
+    selectionAvailable: Boolean,
+    onOptions: (ExportOptions) -> Unit,
+    onClose: () -> Unit,
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+) {
     val c = colors
-    val o = state.export
-    ModalCard({ actions.setExportOpen(false) }, 680.dp, "Export and share") { width ->
+    val o = options
+    ModalCard(onClose, 680.dp, "Export and share") { width ->
         val stacked = width < 600.dp
         Column(Modifier.padding(start = 25.dp, end = 25.dp, top = 9.dp, bottom = 25.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     BasicText("Export and share", Modifier.semantics { heading() }, style = BlotType.title.copy(color = c.text))
-                    BasicText(
-                        listOf(NoteTitle.display(state.noteTitle), state.pageLabel).filter { it.isNotEmpty() }.joinToString(" · "),
-                        style = BlotType.caption.copy(color = c.muted),
-                    )
+                    BasicText(subtitle, style = BlotType.caption.copy(color = c.muted))
                 }
                 IconButton(
-                    BlotIcons.Close, "Close", { actions.setExportOpen(false) },
+                    BlotIcons.Close, "Close", onClose,
                     Modifier.offset(x = 10.dp), iconSize = 20.dp, strokeWidth = 2f, tint = c.muted,
                 )
             }
             val preview: @Composable () -> Unit = {
                 Column(Modifier.width(260.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExportPreview(state, c)
-                    BasicText(exportSizeLabel(o, state.exportInfo.areaSizes), style = BlotType.caption.copy(color = c.muted))
+                    ExportPreview(o, info, c)
+                    BasicText(exportSizeLabel(o, info.areaSizes), style = BlotType.caption.copy(color = c.muted))
                 }
             }
-            val options: @Composable (Modifier) -> Unit = { m -> ExportOptionsColumn(state, actions, m) }
+            val optionsColumn: @Composable (Modifier) -> Unit = { m -> ExportOptionsColumn(o, areas, selectionAvailable, onOptions, m) }
             if (stacked) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     preview()
-                    options(Modifier.fillMaxWidth())
+                    optionsColumn(Modifier.fillMaxWidth())
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
                     preview()
-                    options(Modifier.weight(1f))
+                    optionsColumn(Modifier.weight(1f))
                 }
             }
             Column {
                 Rule()
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BasicText(state.exportInfo.destination, Modifier.weight(1f), style = BlotType.monoCaption.copy(color = c.muted))
-                    OutlineButton("Save to folder", actions::exportToFolder, Modifier.padding(top = 12.dp), glyph = BlotIcons.Download)
-                    PrimaryButton("Share…", actions::share, Modifier.padding(top = 12.dp), glyph = BlotIcons.ShareAlt)
+                    BasicText(info.destination, Modifier.weight(1f), style = BlotType.monoCaption.copy(color = c.muted))
+                    OutlineButton("Save to folder", onSave, Modifier.padding(top = 12.dp), glyph = BlotIcons.Download)
+                    PrimaryButton("Share…", onShare, Modifier.padding(top = 12.dp), glyph = BlotIcons.ShareAlt)
                 }
             }
         }
@@ -114,25 +139,31 @@ internal fun ExportDialog(state: EditorUiState, actions: EditorActions) {
 }
 
 @Composable
-private fun ExportOptionsColumn(state: EditorUiState, actions: EditorActions, modifier: Modifier) {
-    val c = colors
-    val o = state.export
-    val set = actions::setExportOptions
+private fun ExportOptionsColumn(
+    o: ExportOptions,
+    areas: List<ExportArea>,
+    selectionAvailable: Boolean,
+    set: (ExportOptions) -> Unit,
+    modifier: Modifier,
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SegmentGroup(
             "Format",
             listOf(Segment(ExportFormat.Png, "PNG"), Segment(ExportFormat.Pdf, "PDF"), Segment(ExportFormat.Svg, "SVG")),
             o.format,
         ) { set(o.copy(format = it)) }
-        SegmentGroup(
-            "Area",
-            listOf(
-                Segment(ExportArea.WholeCanvas, "Whole canvas"),
-                Segment(ExportArea.VisibleArea, "Visible area"),
-                Segment(ExportArea.Selection, "Selection", enabled = state.hasSelection),
-            ),
-            o.area,
-        ) { set(o.copy(area = it)) }
+        if (areas.size > 1) {
+            val labels = mapOf(
+                ExportArea.WholeCanvas to "Whole canvas",
+                ExportArea.VisibleArea to "Visible area",
+                ExportArea.Selection to "Selection",
+            )
+            SegmentGroup(
+                "Area",
+                areas.map { Segment(it, labels.getValue(it), enabled = it != ExportArea.Selection || selectionAvailable) },
+                o.area,
+            ) { set(o.copy(area = it)) }
+        }
         if (o.format == ExportFormat.Png) {
             SegmentGroup("Scale", listOf(Segment(1, "1×"), Segment(2, "2×"), Segment(3, "3×")), o.scale) { set(o.copy(scale = it)) }
         }
@@ -158,8 +189,7 @@ private fun <T> SegmentGroup(label: String, options: List<Segment<T>>, selected:
 }
 
 @Composable
-private fun ExportPreview(state: EditorUiState, c: BlotColors) {
-    val o = state.export
+private fun ExportPreview(o: ExportOptions, info: ExportInfo, c: BlotColors) {
     val light = o.lightColours || !c.dark
     val paper = if (light) BlotColors.Light.bg else BlotColors.Dark.bg
     val dot = if (light) BlotColors.Light.dot else BlotColors.Dark.dot
@@ -198,7 +228,7 @@ private fun ExportPreview(state: EditorUiState, c: BlotColors) {
                 }
             }
         }
-        state.exportInfo.preview?.let {
+        info.preview?.let {
             Image(it, null, Modifier.fillMaxSize().padding(10.dp), contentScale = ContentScale.Fit)
         }
     }

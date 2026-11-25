@@ -1,5 +1,10 @@
 package app.blot.shell
 
+import kotlin.math.roundToInt
+import app.blot.core.model.Rect
+import app.blot.core.model.PageSetup
+import app.blot.canvas.pagesBounds
+import androidx.compose.ui.unit.IntSize
 import android.content.Context
 import android.content.res.Configuration
 import android.net.Uri
@@ -30,10 +35,11 @@ import app.blot.core.store.NoteUnreadableException
 import app.blot.core.store.TreeNoteStore
 import app.blot.storage.NoteFolder
 import app.blot.storage.SafFileTree
-import app.blot.ui.editor.ExportFormat
+import app.blot.ui.editor.ExportArea
 import app.blot.ui.editor.ExportOptions
 import app.blot.ui.library.FolderItem
 import app.blot.ui.library.LibraryActions
+import app.blot.ui.library.LibraryExport
 import app.blot.ui.library.LibraryUiState
 import app.blot.ui.library.NoteCard
 import app.blot.ui.library.PageKind
@@ -351,21 +357,86 @@ class AppModel(
         }
     }
 
-    override fun exportNote(id: String, format: ExportFormat) = exportFromLibrary(id, ExportOptions(format = format), ExportTarget.Folder)
+    // The note behind library.exporting, read once when the dialog opens.
+    private var exportSource: Note? = null
 
-    override fun shareNote(id: String) = exportFromLibrary(id, ExportOptions(), ExportTarget.Share)
+    override fun openExport(id: String) {
+        val card = library.notes.firstOrNull { it.id == id } ?: return
+        exportSource = null
+        library = library.copy(cardMenu = null, exporting = LibraryExport(id, card.title))
+        main.launch {
+            try {
+                val note = withStore { it.readNote(NoteId(id)) { b -> NoteJson.decode(b.decodeToString()) }.value }
+                val e = library.exporting?.takeIf { it.id == id } ?: return@launch
+                exportSource = note
+                val whole = when (val p = note.page) {
+                    is PageSetup.Pages -> pagesBounds(p)
+                    PageSetup.Infinite -> note.elements.map { it.bounds }.reduceOrNull(Rect::union)
+                }
+                val sizes = whole?.let { mapOf(ExportArea.WholeCanvas to IntSize(it.width.roundToInt(), it.height.roundToInt())) }.orEmpty()
+                library = library.copy(
+                    exporting = e.copy(
+                        subtitle = listOf(card.title, CanvasEditor.pageLabel(note.page)).joinToString(" · "),
+                        info = e.info.copy(areaSizes = sizes),
+                    ),
+                )
+                renderExportPreview(id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                library = library.copy(exporting = null)
+                storageFailed(e, "Couldn't open the note for export")
+            }
+        }
+    }
 
-    private fun exportFromLibrary(id: String, options: ExportOptions, target: ExportTarget) {
-        library = library.copy(cardMenu = null)
+    private fun renderExportPreview(id: String) {
+        val note = exportSource ?: return
+        val darkNow = dark && library.exporting?.options?.lightColours == false
+        main.launch {
+            val preview = try {
+                withStore { store ->
+                    val images = NoteAssetImages(read = { store.readAsset(NoteId(id), it) }, launch = {})
+                    val renderer = SceneRenderer(OutlineCache(), MarkdownTextBoxRenderer(images, darkNow), AssetImages { ref, _ -> images.loadNow(ref) })
+                    ThumbnailRenderer.render(note, darkNow, renderer, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "export preview of $id failed", e)
+                null
+            }
+            val e = library.exporting?.takeIf { it.id == id } ?: return@launch
+            library = library.copy(exporting = e.copy(info = e.info.copy(preview = preview?.asImageBitmap())))
+        }
+    }
+
+    override fun setExportOptions(options: ExportOptions) {
+        val e = library.exporting ?: return
+        library = library.copy(exporting = e.copy(options = options))
+        if (options.lightColours != e.options.lightColours) renderExportPreview(e.id)
+    }
+
+    override fun closeExport() {
+        library = library.copy(exporting = null)
+        exportSource = null
+    }
+
+    override fun exportToFolder() = exportFromLibrary(ExportTarget.Folder)
+
+    override fun shareExport() = exportFromLibrary(ExportTarget.Share)
+
+    private fun exportFromLibrary(target: ExportTarget) {
+        val e = library.exporting ?: return
         main.launch {
             try {
                 val darkNow = dark
                 val job = withStore { store ->
-                    val nid = NoteId(id)
+                    val nid = NoteId(e.id)
                     val note = store.readNote(nid) { b -> NoteJson.decode(b.decodeToString()) }.value
-                    ExportJob(note, ExportAssets.of(store, nid), options, dark = darkNow)
+                    ExportJob(note, ExportAssets.of(store, nid), e.options, dark = darkNow)
                 }
-                exporter.export(job, target)
+                if (exporter.export(job, target) && target == ExportTarget.Folder) closeExport()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -510,6 +581,8 @@ class AppModel(
 
     companion object {
         private const val TAG = "AppModel"
+        private const val PREVIEW_WIDTH = 960
+        private const val PREVIEW_HEIGHT = 540
         private const val THUMBNAIL_CACHE = 200
         private val FORMAT = Regex("\"format\"\\s*:\\s*(\\d+)")
 

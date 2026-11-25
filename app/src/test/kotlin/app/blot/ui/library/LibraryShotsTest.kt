@@ -47,6 +47,9 @@ class LibraryShotsTest {
     fun cardMenu() = library("land-light-card-menu", 1569, 941, false) { setCardMenu("raft") }
 
     @Test @Config(qualifiers = LAND)
+    fun exportDialog() = library("land-light-export", 1569, 941, false) { openExport("raft") }
+
+    @Test @Config(qualifiers = LAND)
     fun newNoteMenu() = library("land-dark-new-note", 1569, 941, true) { setNewNoteOpen(true) }
 
     @Test @Config(qualifiers = LAND)
