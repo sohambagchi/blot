@@ -3,6 +3,8 @@ package app.screenscratch.canvas
 /** What a pen drag does. */
 enum class Tool {
     PEN,
+
+    /** Erases as [CanvasController.eraserMode] says. */
     ERASER,
     PAN,
 
@@ -15,6 +17,15 @@ enum class Tool {
         PAN -> SELECT
         SELECT, ERASER -> PEN
     }
+}
+
+/** What the eraser takes. */
+enum class EraserMode {
+    /** Whole strokes it touches. */
+    WHOLE_STROKE,
+
+    /** Only the parts of strokes it passes over; the rest are split into new strokes. */
+    PARTIAL,
 }
 
 /** The kind of pointer, from `MotionEvent.getToolType`. */

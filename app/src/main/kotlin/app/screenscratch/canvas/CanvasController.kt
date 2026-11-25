@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.screenscratch.core.edit.PartialErase
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Element
 import app.screenscratch.core.model.Note
@@ -32,6 +33,9 @@ class CanvasController(initial: Note) {
 
     /** What pen drags do; the pen's cycle button changes it too. */
     var tool by mutableStateOf(Tool.PEN)
+
+    /** What [Tool.ERASER] and the pen's erase button take. */
+    var eraserMode by mutableStateOf(EraserMode.WHOLE_STROKE)
 
     /** Colour of new strokes. */
     var color by mutableStateOf(Argb.BLACK)
@@ -203,14 +207,35 @@ class CanvasController(initial: Note) {
         gestureStart = _note.value
     }
 
-    /** Erases strokes touched by the canvas-unit capsule from a to b with radius [r]. */
+    /**
+     * Erases along the canvas-unit capsule from a to b with radius [r], by [eraserMode]: whole
+     * strokes it touches, or the parts of strokes it covers. Returns the strokes it changed.
+     */
     internal fun eraseAlong(ax: Float, ay: Float, bx: Float, by: Float, r: Float): Int {
         val n = _note.value
+        if (eraserMode == EraserMode.PARTIAL) return erasePartAlong(n, ax, ay, bx, by, r)
         val hit = Eraser.hits(n.elements, outlines::outline, ax, ay, bx, by, r)
         if (hit.isEmpty()) return 0
         val ids = hit.toHashSet()
         setNote(n.copy(elements = n.elements.filterNot { it.id in ids }))
         return hit.size
+    }
+
+    private fun erasePartAlong(n: Note, ax: Float, ay: Float, bx: Float, by: Float, r: Float): Int {
+        var changed = 0
+        var out: ArrayList<Element>? = null
+        for ((i, e) in n.elements.withIndex()) {
+            val pieces = if (e is Stroke) PartialErase.erase(e, ax, ay, bx, by, r) else null
+            if (pieces == null) {
+                out?.add(e)
+                continue
+            }
+            if (out == null) out = ArrayList<Element>(n.elements.size + 1).apply { addAll(n.elements.subList(0, i)) }
+            out.addAll(pieces)
+            changed++
+        }
+        if (out != null) setNote(n.copy(elements = out))
+        return changed
     }
 
     internal fun endErase() {
