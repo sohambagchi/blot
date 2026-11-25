@@ -357,9 +357,25 @@ class CanvasController(initial: Note) {
     fun clear() = edit { if (it.elements.isEmpty()) it else it.copy(elements = emptyList()) }
 
     /** Changes the page setup, undoably, and fits the view to it. */
+    /**
+     * Changes the page setup as one undoable step. A new paper, orientation or page kind refits
+     * the view to the first page; adding pages scrolls to the last one at the current zoom; removing
+     * pages leaves the view where it is.
+     */
     fun setPage(page: PageSetup) {
+        val old = _note.value.page
         edit { if (it.page == page) it else it.copy(page = page) }
-        fit()
+        when {
+            old is PageSetup.Pages && page is PageSetup.Pages && old.copy(count = page.count) == page ->
+                if (page.count > old.count) showPageTop(page, page.count - 1)
+            else -> fit()
+        }
+    }
+
+    private fun showPageTop(page: PageSetup.Pages, index: Int) {
+        if (viewWidth <= 0) return
+        val v = viewport
+        applyViewport(v.copy(offsetY = FIT_MARGIN_DP * density - page.pageRect(index).y * v.scale))
     }
 
     /** Redraws the canvas, e.g. after the text-box renderer's content changed (an image it shows has loaded). */
