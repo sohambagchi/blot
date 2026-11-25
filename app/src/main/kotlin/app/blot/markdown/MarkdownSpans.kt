@@ -12,6 +12,10 @@ import android.text.style.LineHeightSpan
 import android.text.style.MetricAffectingSpan
 import android.text.style.ReplacementSpan
 import android.text.style.UpdateAppearance
+import app.blot.markdown.math.MathBox
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
 
 // None of these spans draw anything. They only shape the layout; MarkdownLayout computes the
 // visible decorations (bars, bullets, backgrounds, images) from them, so the same list serves
@@ -136,3 +140,34 @@ internal class RuleSpan(widthPx: Int, heightPx: Int) : BoxSpan(widthPx, heightPx
 internal class ImageSpan(
     val path: String, val alt: String, val bitmap: Bitmap?, widthPx: Int, heightPx: Int,
 ) : BoxSpan(widthPx, heightPx)
+
+/**
+ * Typeset maths sitting on the baseline, drawn as a decoration. The line grows to fit it, plus
+ * [paddingPx] above and below (display maths).
+ */
+internal class MathSpan(val box: MathBox, private val paddingPx: Int) : ReplacementSpan() {
+    override fun getSize(
+        paint: Paint, text: CharSequence?, start: Int, end: Int, fm: Paint.FontMetricsInt?,
+    ): Int {
+        if (fm != null) {
+            paint.getFontMetricsInt(fm)
+            val ascent = ceil(box.ascent).toInt() + paddingPx
+            val descent = ceil(box.descent).toInt() + paddingPx
+            fm.ascent = min(fm.ascent, -ascent)
+            fm.top = min(fm.top, -ascent)
+            fm.descent = max(fm.descent, descent)
+            fm.bottom = max(fm.bottom, descent)
+        }
+        return ceil(box.width).toInt()
+    }
+
+    override fun draw(
+        canvas: Canvas, text: CharSequence?, start: Int, end: Int, x: Float, top: Int, y: Int,
+        bottom: Int, paint: Paint,
+    ) = Unit
+}
+
+/** Maths source that didn't typeset; [message] says why. Underlined in the theme's error colour. */
+internal class MathErrorSpan(val message: String) : CharacterStyle() {
+    override fun updateDrawState(paint: TextPaint) = Unit
+}

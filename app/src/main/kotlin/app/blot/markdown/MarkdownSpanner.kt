@@ -4,7 +4,9 @@ import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.SpannedString
+import android.text.Layout
 import android.text.TextPaint
+import android.text.style.AlignmentSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
@@ -35,6 +37,8 @@ import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
+import app.blot.markdown.math.MathException
+import app.blot.markdown.math.MathTypesetter
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -73,6 +77,9 @@ internal class MarkdownSpanner(
     private var depth = 0
     private var margin = 0
     private var bulletLevel = 0
+
+    /** Size of the text being spanned: the body size, or a heading's. */
+    private var textSize = metrics.em
 
     fun build(source: String): Spanned {
         val document = PARSER.parse(source)
@@ -120,7 +127,9 @@ internal class MarkdownSpanner(
         when (node) {
             is Paragraph -> inlines(node)
             is Heading -> {
+                textSize = metrics.headingSize(node.level)
                 inlines(node)
+                textSize = metrics.em
                 newline()
                 span(start, HeadingSpan(node.level, metrics.headingSize(node.level)))
                 span(start, StyleSpan(Typeface.BOLD))
@@ -141,6 +150,8 @@ internal class MarkdownSpanner(
                 span(start, RuleSpan(availableWidth(), metrics.ruleHeight))
             }
             is HtmlBlock -> sb.append(node.literal.trimEnd('\n'))
+            // A lone `$$`, as while typing one, shows as itself.
+            is MathBlock -> if (node.latex.isBlank()) sb.append("$$") else displayMath(node.latex, "$$${node.latex}$$")
             else -> inlines(node)
         }
         newline()
@@ -231,7 +242,13 @@ internal class MarkdownSpanner(
                 span(start, LinkSpan(node.destination, theme.linkColor))
             }
             is Image -> image(node)
-            is SoftLineBreak -> sb.append(' ')
+            is MathInline -> if (node.display) {
+                displayMath(node.latex, "$$${node.latex}$$")
+                if (node.next != null) sb.append('\n')
+            } else {
+                inlineMath(node.latex)
+            }
+            is SoftLineBreak -> if ((node.previous as? MathInline)?.display != true) sb.append(' ')
             is HardLineBreak -> sb.append('\n')
             is HtmlInline -> sb.append(node.literal)
             else -> inlines(node)
@@ -255,12 +272,57 @@ internal class MarkdownSpanner(
 
     private fun availableWidth() = max(1, widthPx - margin)
 
+    private fun mathSize() = textSize * MATH_SCALE
+
+    /** Inline maths as one object per piece the typesetter allows a line break between. */
+    private fun inlineMath(latex: String) {
+        val boxes = try {
+            MathTypesetter.inline(latex, mathSize())
+        } catch (e: MathException) {
+            mathError("$$latex$", e)
+            return
+        }
+        for (box in boxes) {
+            val start = sb.length
+            sb.append(OBJECT)
+            span(start, MathSpan(box, paddingPx = 0))
+        }
+    }
+
+    /** Display maths, centred on a line of its own and shrunk to fit the width if need be. */
+    private fun displayMath(latex: String, source: String) {
+        newline()
+        val start = sb.length
+        val box = try {
+            val size = mathSize()
+            val full = MathTypesetter.display(latex, size)
+            val available = availableWidth()
+            if (full.width <= available) full
+            else MathTypesetter.display(latex, size * max(MIN_DISPLAY_SCALE, available / full.width * 0.99f))
+        } catch (e: MathException) {
+            mathError(source, e)
+            return
+        }
+        sb.append(OBJECT)
+        span(start, MathSpan(box, paddingPx = (metrics.em * DISPLAY_PADDING).roundToInt()))
+        span(start, AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER))
+    }
+
+    /** Maths that didn't typeset: its [source], muted and underlined as an error. */
+    private fun mathError(source: String, e: MathException) {
+        val start = sb.length
+        sb.append(source)
+        span(start, ForegroundColorSpan(theme.mutedColor))
+        span(start, MathErrorSpan(e.message.orEmpty()))
+    }
+
     private fun textContent(node: Node): String = buildString {
         var child = node.firstChild
         while (child != null) {
             when (child) {
                 is Text -> append(child.literal)
                 is Code -> append(child.literal)
+                is MathInline -> append(child.latex)
                 is SoftLineBreak, is HardLineBreak -> append(' ')
                 else -> append(textContent(child))
             }
@@ -271,9 +333,21 @@ internal class MarkdownSpanner(
     companion object {
         const val OBJECT = '￼'
 
+        /**
+         * Maths is set this much larger than the text around it, so Latin Modern's x-height
+         * matches the sans text's, as KaTeX does (1.21).
+         */
+        const val MATH_SCALE = 1.2f
+
+        /** Display maths shrinks at most to this fraction of its size to fit; beyond, it's clipped. */
+        const val MIN_DISPLAY_SCALE = 0.5f
+
+        /** Space above and below display maths, in ems. */
+        const val DISPLAY_PADDING = 0.3f
+
         /** commonmark parsers are thread-safe and reusable. */
         val PARSER: Parser = Parser.builder()
-            .extensions(listOf(StrikethroughExtension.create(), TaskListItemsExtension.create()))
+            .extensions(listOf(StrikethroughExtension.create(), TaskListItemsExtension.create(), MathExtension.create()))
             .build()
     }
 }

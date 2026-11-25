@@ -337,7 +337,7 @@ class CanvasToolsTest {
     fun tappingABoxWithTheTextToolEditsIt() {
         val existing = TextBox("t", Rect(0f, 0f, 200f, 30f), "hello", 18f, Argb.BLACK)
         val c = controller(existing)
-        c.textMeasurer = { 60f }
+        c.textMeasurer = { it.markdown.lines().size * 30f }
         c.tool = Tool.TEXT
         c.tap(50f, 15f)
         assertEquals("t", c.editingText!!.id)

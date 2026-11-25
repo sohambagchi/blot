@@ -64,6 +64,7 @@ class InkCanvasView(
         set(v) {
             uiRenderer.text = v
             front.renderer.text = v
+            controller.refitText()
             onAppearanceChanged()
         }
 

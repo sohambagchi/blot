@@ -41,6 +41,9 @@ class SvgText(val lines: List<TextLine>, val decorations: List<Decoration>) {
         /** Regular-face text with its left edge at [x]. */
         data class Label(val text: String, val x: Float, val baseline: Float, val fontSize: Float, val color: Int) : Decoration
 
+        /** A filled outline, such as typeset maths as glyph outlines: SVG path data [data], non-zero fill. */
+        data class Path(val data: String, val color: Int) : Decoration
+
         /** An image file, by its path in the note (`assets/<hash>.<ext>`). */
         data class Image(val path: String, val left: Float, val top: Float, val right: Float, val bottom: Float) : Decoration
     }

@@ -21,6 +21,7 @@ import app.blot.core.model.bringForward
 import app.blot.core.model.bringToFront
 import app.blot.core.model.sendBackward
 import app.blot.core.model.sendToBack
+import kotlin.math.abs
 import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,8 +110,15 @@ class CanvasController(initial: Note) {
     /** The markdown typed into the text box being edited so far. */
     internal var textDraft = ""
 
-    /** Measures a text box's laid-out height, canvas units; the canvas view sets it from its renderer. */
+    /**
+     * Measures a text box's laid-out height, canvas units; the canvas view sets it from its
+     * renderer. Every note change fits text boxes' heights to it, so a box never clips its text.
+     */
     internal var textMeasurer: (TextBox) -> Float = { it.frame.height }
+        set(v) {
+            field = v
+            refitText()
+        }
 
     /** Colour of new strokes. */
     var color by mutableStateOf(Argb.BLACK)
@@ -408,7 +416,25 @@ class CanvasController(initial: Note) {
 
     /** Redraws the canvas, e.g. after the text-box renderer's content changed (an image it shows has loaded). */
     fun redraw() {
+        refitText()
         listener?.onAppearanceChanged()
+    }
+
+    /** Fits text boxes' heights to [textMeasurer] again, e.g. after the renderer changed; not an undo step. */
+    internal fun refitText() {
+        val n = _note.value
+        if (fitText(n) !== n) setNote(n)
+    }
+
+    private fun fitText(n: Note): Note {
+        var changed = false
+        val elements = n.elements.map { e ->
+            if (e !is TextBox) return@map e
+            val h = max(MIN_TEXT_HEIGHT, textMeasurer(e))
+            if (abs(h - e.frame.height) < TEXT_HEIGHT_TOLERANCE) e
+            else e.copy(frame = e.frame.copy(height = h)).also { changed = true }
+        }
+        return if (changed) n.copy(elements = elements) else n
     }
 
     /** Cycles [tool] as the pen's side button does. */
@@ -529,7 +555,8 @@ class CanvasController(initial: Note) {
 
     private fun touch(n: Note): Note = n.copy(modified = Instant.now().truncatedTo(ChronoUnit.MILLIS))
 
-    private fun setNote(n: Note) {
+    private fun setNote(note: Note) {
+        val n = fitText(note)
         _note.value = n
         if (selection.isNotEmpty()) {
             val ids = n.elements.mapTo(HashSet()) { it.id }
@@ -561,6 +588,9 @@ class CanvasController(initial: Note) {
         const val DUPLICATE_OFFSET = 16f
 
         private const val MIN_TEXT_HEIGHT = 1f
+
+        /** Height differences below this, canvas units, are rounding and leave a text box alone. */
+        private const val TEXT_HEIGHT_TOLERANCE = 0.5f
 
         /** A new empty note. */
         fun newNote(page: PageSetup = PageSetup.Infinite): Note {

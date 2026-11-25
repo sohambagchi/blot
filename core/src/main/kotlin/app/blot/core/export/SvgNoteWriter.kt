@@ -15,7 +15,8 @@ import app.blot.core.model.TextBox
  * Serialises a note as one SVG document whose user units are canvas units (dp), so the
  * `width`/`height` in CSS px match the note's size on an Android screen at 100%. Strokes are
  * filled outline paths, shapes and lines are SVG primitives, images are `data:` URIs, and text
- * boxes are one `<text>` per laid-out line with a `<tspan>` per styled run; no `foreignObject`.
+ * boxes are one `<text>` per laid-out line with a `<tspan>` per styled run, their maths glyph
+ * outlines as `<path>`s; no `foreignObject`.
  * Pages are stacked as in the note, each clipped to itself.
  *
  * @param outline a stroke's outline polygon, x0, y0, x1, y1, … in canvas units.
@@ -228,6 +229,7 @@ class SvgNoteWriter(
             is SvgText.Decoration.Label -> x.textLeaf(
                 "text", d.text, "xml:space" to "preserve", "x" to d.x, "y" to d.baseline, "font-size" to d.fontSize, *paint(d.color),
             )
+            is SvgText.Decoration.Path -> x.leaf("path", "d" to d.data, *paint(d.color))
             is SvgText.Decoration.Image -> imageHref(d.path)?.let {
                 x.leaf(
                     "image", "x" to d.left, "y" to d.top, "width" to d.right - d.left, "height" to d.bottom - d.top,
