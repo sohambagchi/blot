@@ -6,8 +6,8 @@ import android.graphics.Paint
 import android.graphics.Path
 
 /**
- * Draws what the select tool shows over the note: the lasso or selection rectangle, and the
- * selection's box with its corner handles. The box and handles are a fixed
+ * Draws what the tools show over the note: the shape or line being drawn, the lasso or selection
+ * rectangle, and the selection's box with its corner handles. The box and handles are a fixed
  * size on screen. Draw it after the scene, on the canvas view's canvas (view pixels). UI thread.
  */
 internal class ToolOverlayPainter(private val density: Float) {
@@ -31,6 +31,14 @@ internal class ToolOverlayPainter(private val density: Float) {
         edge.color = accent
         dashed.color = accent
         tint.color = accent and 0x00FFFFFF or (0x18 shl 24)
+
+        g.draft?.let { d ->
+            canvas.save()
+            canvas.translate(v.offsetX, v.offsetY)
+            canvas.scale(v.scale, v.scale)
+            renderer.drawElement(canvas, d, dark)
+            canvas.restore()
+        }
 
         if (g.lassoCount > 1) {
             val xy = g.lasso

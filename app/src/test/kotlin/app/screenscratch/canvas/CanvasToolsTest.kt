@@ -1,7 +1,9 @@
 package app.screenscratch.canvas
 
 import app.screenscratch.core.model.Argb
+import app.screenscratch.core.model.Arrowhead
 import app.screenscratch.core.model.Element
+import app.screenscratch.core.model.Line
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.Rect
 import app.screenscratch.core.model.Shape
@@ -14,6 +16,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import kotlin.math.atan2
 
 /** The editing tools driven through [CanvasController], as the canvas view drives them, in canvas units at 100%. */
 class CanvasToolsTest {
@@ -216,5 +219,93 @@ class CanvasToolsTest {
         c.cycleTool()
         assertEquals(Tool.PEN, c.tool)
         assertTrue(c.selection.isEmpty())
+    }
+
+    @Test
+    fun undoDropsVanishedIdsFromTheSelection() {
+        val c = controller()
+        c.tool = Tool.SHAPE
+        c.drag(0f, 0f, 50f, 50f)
+        c.tool = Tool.SELECT
+        c.selectAll()
+        assertEquals(1, c.selection.size)
+        c.undo()
+        assertTrue(c.selection.isEmpty())
+    }
+
+    // Shapes and lines.
+
+    @Test
+    fun shapeToolDrawsRectanglesAndEllipses() {
+        val c = controller()
+        c.tool = Tool.SHAPE
+        c.color = Argb(0xFFE53935.toInt())
+        c.width = 3f
+        c.toolStart(10f, 10f)
+        c.toolMove(60f, 40f)
+        assertTrue("previewed, not committed", c.elements.isEmpty())
+        assertEquals(Rect(10f, 10f, 50f, 30f), (c.toolGestures.draft as Shape).frame)
+        c.toolEnd()
+        val r = c.elements.single() as Shape
+        assertEquals(ShapeKind.RECTANGLE, r.kind)
+        assertEquals(Rect(10f, 10f, 50f, 30f), r.frame)
+        assertEquals(Argb(0xFFE53935.toInt()), r.color)
+        assertEquals(3f, r.width)
+        assertNull(r.fill)
+        assertNull(c.toolGestures.draft)
+        c.assertUndoRedo(emptyList())
+
+        c.shapeKind = ShapeKind.ELLIPSE
+        c.constrainShapes = true
+        c.shapeFill = Argb(0xFFFFF59D.toInt())
+        c.drag(100f, 100f, 60f, 130f)
+        val e = c.elements.last() as Shape
+        assertEquals(ShapeKind.ELLIPSE, e.kind)
+        assertEquals(Rect(60f, 100f, 40f, 40f), e.frame)
+        assertEquals(Argb(0xFFFFF59D.toInt()), e.fill)
+    }
+
+    @Test
+    fun aTapWithTheShapeOrLineToolDrawsNothing() {
+        val c = controller()
+        c.tool = Tool.SHAPE
+        c.tap(10f, 10f)
+        c.tool = Tool.LINE
+        c.tap(10f, 10f)
+        assertTrue(c.elements.isEmpty())
+        assertFalse(c.canUndo)
+    }
+
+    @Test
+    fun lineToolDrawsEachArrowKindAndSnapsTo15Degrees() {
+        val c = controller()
+        c.tool = Tool.LINE
+        c.width = 2f
+        val kinds = listOf(
+            LineArrows.NONE to (Arrowhead.NONE to Arrowhead.NONE),
+            LineArrows.END to (Arrowhead.NONE to Arrowhead.ARROW),
+            LineArrows.BOTH to (Arrowhead.ARROW to Arrowhead.ARROW),
+        )
+        for ((i, k) in kinds.withIndex()) {
+            c.lineArrows = k.first
+            c.drag(0f, i * 50f, 100f, i * 50f + 3f)
+            val l = c.elements.last() as Line
+            assertEquals(k.second, l.startArrow to l.endArrow)
+            // 1.7° snaps to 0°.
+            assertEquals(i * 50f, l.points[1].y)
+        }
+        c.arrowhead = Arrowhead.TRIANGLE
+        c.lineArrows = LineArrows.END
+        c.drag(0f, 0f, 100f, 70f)
+        val l = c.elements.last() as Line
+        assertEquals(Arrowhead.TRIANGLE, l.endArrow)
+        val deg = Math.toDegrees(atan2((l.points[1].y - l.points[0].y).toDouble(), (l.points[1].x - l.points[0].x).toDouble()))
+        assertEquals(30.0, deg, 1e-3)
+
+        val before = c.elements
+        c.snapAngles = false
+        c.drag(0f, 0f, 100f, 70f)
+        assertEquals(70f, (c.elements.last() as Line).points[1].y)
+        c.assertUndoRedo(before)
     }
 }

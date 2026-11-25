@@ -9,10 +9,12 @@ import app.screenscratch.core.edit.Selection
 import app.screenscratch.core.edit.SelectionEdits
 import app.screenscratch.core.edit.Similarity
 import app.screenscratch.core.model.Argb
+import app.screenscratch.core.model.Arrowhead
 import app.screenscratch.core.model.Element
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.PageSetup
 import app.screenscratch.core.model.Rect
+import app.screenscratch.core.model.ShapeKind
 import app.screenscratch.core.model.Stroke
 import app.screenscratch.core.model.bringForward
 import app.screenscratch.core.model.bringToFront
@@ -61,6 +63,24 @@ class CanvasController(initial: Note) {
 
     /** How [Tool.SELECT] selects. */
     var selectMode by mutableStateOf(SelectMode.LASSO)
+
+    /** What [Tool.SHAPE] draws. */
+    var shapeKind by mutableStateOf(ShapeKind.RECTANGLE)
+
+    /** Fill of new shapes, or null for none. Their outline uses [color] and [width]. */
+    var shapeFill by mutableStateOf<Argb?>(null)
+
+    /** Draws rectangles as squares and ellipses as circles, as Shift does in drawing apps. */
+    var constrainShapes by mutableStateOf(false)
+
+    /** Which ends of new lines get an arrowhead. */
+    var lineArrows by mutableStateOf(LineArrows.END)
+
+    /** The arrowhead [lineArrows] puts on new lines. */
+    var arrowhead by mutableStateOf(Arrowhead.ARROW)
+
+    /** Snaps new lines to multiples of 15°. */
+    var snapAngles by mutableStateOf(true)
 
     /** Ids of the selected elements, in no particular order. Every id is in the note. */
     var selection by mutableStateOf<Set<String>>(emptySet())

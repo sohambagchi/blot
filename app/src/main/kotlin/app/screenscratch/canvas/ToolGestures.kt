@@ -3,15 +3,21 @@ package app.screenscratch.canvas
 import app.screenscratch.core.edit.Selection
 import app.screenscratch.core.edit.SelectionEdits
 import app.screenscratch.core.edit.Similarity
+import app.screenscratch.core.edit.Snap
+import app.screenscratch.core.model.Arrowhead
+import app.screenscratch.core.model.Element
+import app.screenscratch.core.model.Line
+import app.screenscratch.core.model.Point
 import app.screenscratch.core.model.Rect
+import app.screenscratch.core.model.Shape
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The select tool's pen gestures, in canvas units. While a gesture runs the note is unchanged
- * and the canvas view draws [lasso], [marquee] and the selection through [transform]; the
- * gesture's end applies it as one undoable edit.
+ * The select, shape and line tools' pen gestures, in canvas units. While a gesture runs
+ * the note is unchanged and the canvas view draws [lasso], [marquee], [draft] and the selection
+ * through [transform]; the gesture's end applies it as one undoable edit.
  */
 internal class ToolGestures(private val c: CanvasController) {
     private sealed class Gesture(val x0: Float, val y0: Float) {
@@ -27,6 +33,8 @@ internal class ToolGestures(private val c: CanvasController) {
         val cornerX: Float, val cornerY: Float,
         val minFactor: Float,
     ) : Gesture(x0, y0)
+    private class DrawShape(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
+    private class DrawLine(x0: Float, y0: Float, val id: String) : Gesture(x0, y0)
 
     private var gesture: Gesture? = null
     private var lastX = 0f
@@ -40,6 +48,10 @@ internal class ToolGestures(private val c: CanvasController) {
 
     /** The selection rectangle being dragged, or null. */
     var marquee: Rect? = null
+        private set
+
+    /** The shape or line being drawn, not yet in the note. */
+    var draft: Element? = null
         private set
 
     /** Applied to the selection while it is moved or scaled. */
@@ -57,6 +69,8 @@ internal class ToolGestures(private val c: CanvasController) {
         lastY = y
         gesture = when (c.tool) {
             Tool.SELECT -> selectStart(x, y)
+            Tool.SHAPE -> DrawShape(x, y, Element.newId())
+            Tool.LINE -> DrawLine(x, y, Element.newId())
             else -> null
         }
         if (gesture is Lasso) {
@@ -110,8 +124,25 @@ internal class ToolGestures(private val c: CanvasController) {
                 )
                 transform = Similarity.scale(f, g.anchorX, g.anchorY)
             }
+            is DrawShape -> draft = if (isTap(g)) null else Shape(
+                g.id, c.shapeKind, Snap.dragRect(g.x0, g.y0, x, y, c.constrainShapes), c.color, c.width, c.shapeFill,
+            )
+            is DrawLine -> draft = if (isTap(g)) null else line(g, x, y)
         }
         c.overlayChanged()
+    }
+
+    private fun line(g: DrawLine, x: Float, y: Float): Line {
+        val end = if (c.snapAngles) Snap.angle(g.x0, g.y0, x, y) else Point(x, y)
+        val arrows = c.lineArrows
+        return Line(
+            g.id,
+            listOf(Point(g.x0, g.y0), end),
+            c.color,
+            c.width,
+            startArrow = if (arrows == LineArrows.BOTH) c.arrowhead else Arrowhead.NONE,
+            endArrow = if (arrows == LineArrows.NONE) Arrowhead.NONE else c.arrowhead,
+        )
     }
 
     private fun isTap(g: Gesture) = g.maxDistance < dp(TAP_SLOP_DP)
@@ -121,6 +152,7 @@ internal class ToolGestures(private val c: CanvasController) {
         val x = lastX
         val y = lastY
         val tap = isTap(g)
+        val committedDraft = draft
         val ring = lasso.copyOf(lassoCount * 2)
         reset()
         when (g) {
@@ -139,6 +171,12 @@ internal class ToolGestures(private val c: CanvasController) {
                 )
                 if (!tap && f != 1f) c.transformSelection(g.ids, Similarity.scale(f, g.anchorX, g.anchorY))
             }
+            is DrawShape, is DrawLine -> {
+                val d = committedDraft
+                if (!tap && d != null && (d !is Shape || (d.frame.width > 0f && d.frame.height > 0f))) {
+                    c.edit { it.copy(elements = it.elements + d) }
+                }
+            }
         }
         c.overlayChanged()
     }
@@ -153,6 +191,7 @@ internal class ToolGestures(private val c: CanvasController) {
         gesture = null
         lassoCount = 0
         marquee = null
+        draft = null
         transform = Similarity.IDENTITY
     }
 

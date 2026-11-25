@@ -31,7 +31,7 @@ interface InputTarget {
     /** A pan or pinch gesture ended. */
     fun transformEnd()
 
-    /** A drag with [Tool.SELECT] started at [sample]. */
+    /** A drag with [Tool.SELECT], [Tool.SHAPE] or [Tool.LINE] started at [sample]. */
     fun editStart(sample: InputSample) {}
 
     fun editMove(samples: List<InputSample>) {}
@@ -112,7 +112,7 @@ class InputRouter(private val target: InputTarget) {
             Tool.PEN -> Role.DRAW
             Tool.ERASER -> Role.ERASE
             Tool.PAN -> Role.PAN
-            Tool.SELECT -> Role.EDIT
+            Tool.SELECT, Tool.SHAPE, Tool.LINE -> Role.EDIT
         }
     }
 

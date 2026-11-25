@@ -230,8 +230,8 @@ class InputRouterTest {
     }
 
     @Test
-    fun selectIsAnEditGesture() {
-        for (tool in listOf(Tool.SELECT)) {
+    fun selectShapeAndLineAreEditGestures() {
+        for (tool in listOf(Tool.SELECT, Tool.SHAPE, Tool.LINE)) {
             t.tool = tool
             t.calls.clear()
             stroke(STYLUS)
@@ -251,7 +251,7 @@ class InputRouterTest {
 
     @Test
     fun aSecondFingerCancelsAFingerEditForAPinch() {
-        t.tool = Tool.SELECT
+        t.tool = Tool.SHAPE
         t.penOnly = false
         ev(DOWN, p(0, FINGER, 10f))
         ev(POINTER_DOWN, p(0, FINGER, 10f), p(1, FINGER, 50f), actionId = 1)

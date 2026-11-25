@@ -3,7 +3,9 @@ package app.screenscratch.canvas
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import app.screenscratch.core.model.Argb
+import app.screenscratch.core.model.Arrowhead
 import app.screenscratch.core.model.Element
+import app.screenscratch.core.model.Line
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.Rect
 import app.screenscratch.core.model.Shape
@@ -23,8 +25,9 @@ import kotlin.math.abs
 import kotlin.math.sin
 
 /**
- * Renders what the tools draw to `app/build/outputs/canvas-render/tools-*.png`: the selection
- * box and handles, a move and a scale in progress, a lasso, and a partial erase. A few pixels are checked; the images are for looking at.
+ * Renders what the tools draw to `app/build/outputs/canvas-render/tools-*.png`: every shape and
+ * line kind the tools make, the selection box and handles, a move in progress, a lasso and a
+ * draft shape, and a partial erase. A few pixels are checked; the images are for looking at.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -53,6 +56,49 @@ class ToolRenderTest {
         )
     }
 
+    /** Draws every element of the tools' kinds by driving the controller as the pen would. */
+    private fun drawnByTools(): CanvasController {
+        val c = CanvasController(Note("n", created = t0, modified = t0))
+        c.width = 3f
+        c.tool = Tool.SHAPE
+        fun drag(x0: Float, y0: Float, x1: Float, y1: Float) {
+            c.toolStart(x0, y0)
+            c.toolMove(x1, y1)
+            c.toolEnd()
+        }
+        c.color = ink
+        drag(20f, 20f, 160f, 110f)
+        c.shapeFill = yellow
+        drag(190f, 20f, 330f, 110f)
+        c.shapeFill = null
+        c.constrainShapes = true
+        c.color = blue
+        drag(360f, 20f, 460f, 70f)
+        c.shapeKind = ShapeKind.ELLIPSE
+        c.constrainShapes = false
+        drag(490f, 20f, 630f, 110f)
+        c.constrainShapes = true
+        c.shapeFill = yellow
+        c.color = red
+        drag(660f, 20f, 760f, 70f)
+
+        c.tool = Tool.LINE
+        c.color = ink
+        c.width = 2.5f
+        for ((i, arrows) in LineArrows.entries.withIndex()) {
+            c.lineArrows = arrows
+            drag(20f, 160f + i * 50f, 260f, 160f + i * 50f + 6f)
+        }
+        c.arrowhead = Arrowhead.TRIANGLE
+        c.color = blue
+        c.lineArrows = LineArrows.BOTH
+        drag(300f, 160f, 520f, 300f)
+        c.lineArrows = LineArrows.END
+        c.snapAngles = false
+        drag(560f, 160f, 760f, 290f)
+        return c
+    }
+
     private fun render(c: CanvasController, name: String, dark: Boolean = false): Bitmap {
         c.onViewSize(w, h, density)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -71,6 +117,23 @@ class ToolRenderTest {
 
     private fun px(bmp: Bitmap, c: CanvasController, x: Float, y: Float) =
         bmp.getPixel(c.viewport.toScreenX(x).toInt(), c.viewport.toScreenY(y).toInt())
+
+    @Test
+    fun shapesAndLines() {
+        val c = drawnByTools()
+        val els = c.note.value.elements
+        assertEquals(5, els.filterIsInstance<Shape>().size)
+        assertEquals(5, els.filterIsInstance<Line>().size)
+        val light = render(c, "tools-shapes-lines-light")
+        render(c, "tools-shapes-lines-dark", dark = true)
+        // The filled rectangle's inside, and the square's outline.
+        assertTrue(hex(px(light, c, 260f, 65f)), near(yellow.value, px(light, c, 260f, 65f), 4))
+        assertTrue(near(blue.value, px(light, c, 360f, 45f), 60))
+        // The snapped "none" line is horizontal: its far end is at the start's height.
+        val none = els.filterIsInstance<Line>().first()
+        assertEquals(none.points[0].y, none.points[1].y)
+        assertTrue(near(ink.value, px(light, c, 200f, 160f), 60))
+    }
 
     @Test
     fun selectionHandles() {
@@ -107,7 +170,7 @@ class ToolRenderTest {
     }
 
     @Test
-    fun lassoInProgress() {
+    fun lassoAndDraftInProgress() {
         val c = CanvasController(Note("n", created = t0, modified = t0, elements = listOf<Element>(
             wave("a", 100f, 120f, 220f), wave("b", 120f, 220f, 180f, red),
         )))
@@ -122,6 +185,14 @@ class ToolRenderTest {
         c.toolEnd()
         render(c, "tools-lasso-selected")
         assertTrue(c.selection.isNotEmpty())
+
+        c.tool = Tool.SHAPE
+        c.shapeKind = ShapeKind.ELLIPSE
+        c.color = blue
+        c.toolStart(420f, 100f)
+        c.toolMove(620f, 260f)
+        render(c, "tools-draft-ellipse")
+        c.toolCancel()
     }
 
     @Test

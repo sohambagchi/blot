@@ -46,12 +46,14 @@ import app.screenscratch.canvas.CanvasController
 import app.screenscratch.canvas.EraserMode
 import app.screenscratch.canvas.FrontBufferContent
 import app.screenscratch.canvas.InkCanvasView
+import app.screenscratch.canvas.LineArrows
 import app.screenscratch.canvas.NoteCanvas
 import app.screenscratch.canvas.SelectMode
 import app.screenscratch.canvas.Tool
 import app.screenscratch.core.model.Argb
 import app.screenscratch.core.model.Note
 import app.screenscratch.core.model.PageSetup
+import app.screenscratch.core.model.ShapeKind
 import app.screenscratch.core.model.format.NoteJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -191,6 +193,19 @@ class CanvasTestActivity : ComponentActivity() {
                             Action("Back", text) { c.sendToBack() }
                         }
                     }
+                    Tool.SHAPE -> {
+                        Action(if (c.shapeKind == ShapeKind.RECTANGLE) "Rectangle" else "Ellipse", text) {
+                            c.shapeKind = if (c.shapeKind == ShapeKind.RECTANGLE) ShapeKind.ELLIPSE else ShapeKind.RECTANGLE
+                        }
+                        Action("Fill: ${onOff(c.shapeFill != null)}", text) { c.shapeFill = if (c.shapeFill == null) Argb(FILL) else null }
+                        Action("Square: ${onOff(c.constrainShapes)}", text) { c.constrainShapes = !c.constrainShapes }
+                    }
+                    Tool.LINE -> {
+                        Action("Arrows: ${c.lineArrows.name.lowercase()}", text) {
+                            c.lineArrows = LineArrows.entries[(c.lineArrows.ordinal + 1) % LineArrows.entries.size]
+                        }
+                        Action("Snap 15°: ${onOff(c.snapAngles)}", text) { c.snapAngles = !c.snapAngles }
+                    }
                     else -> Unit
                 }
                 Action("Undo", text.copy(color = if (c.canUndo) ink else muted)) { c.undo() }
@@ -253,6 +268,8 @@ class CanvasTestActivity : ComponentActivity() {
             Tool.ERASER -> "Eraser"
             Tool.PAN -> "Pan"
             Tool.SELECT -> "Select"
+            Tool.SHAPE -> "Shape"
+            Tool.LINE -> "Line"
         }
 
     companion object {
@@ -261,6 +278,7 @@ class CanvasTestActivity : ComponentActivity() {
         private const val TAG = "CanvasTest"
         private const val SAVE_DEBOUNCE_MS = 500L
         private const val A4_PAGES = 3
+        private const val FILL = 0xFFFFF59D.toInt()
         /** Black, red, blue, green. */
         private val PEN_COLORS = listOf(0xFF000000.toInt(), 0xFFE53935.toInt(), 0xFF1E5BD8.toInt(), 0xFF2E7D32.toInt())
     }
