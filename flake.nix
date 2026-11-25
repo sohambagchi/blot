@@ -1,5 +1,5 @@
 {
-  description = "Screen Scratch: pen-based notes app for Android (dev shell)";
+  description = "Blot: pen-based notes app for Android (dev shell)";
 
   inputs = {
     android-emu.url = "git+file:///home/soham/dev/android-emu";

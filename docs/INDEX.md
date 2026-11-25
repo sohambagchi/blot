@@ -9,6 +9,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Decisions
 
+- [2026-11-24-2125-rename-to-blot](adr/2026-11-24-2125-rename-to-blot.md) — the app is called Blot, ID app.blot
 - [2026-11-24-2037-lasso-selects-what-it-touches](adr/2026-11-24-2037-lasso-selects-what-it-touches.md) — the lasso selects anything it encloses or touches
 - [2026-11-24-2037-partial-eraser-splits-point-lists](adr/2026-11-24-2037-partial-eraser-splits-point-lists.md) — the partial eraser cuts strokes into new strokes
 - [2026-11-24-2037-text-boxes-edited-in-place](adr/2026-11-24-2037-text-boxes-edited-in-place.md) — text boxes are edited as markdown source over the canvas
@@ -31,6 +32,7 @@ Console: https://claude.ai/artifact/J59pWtPJ2HmmSFPT5TUmix
 
 ## Changes
 
+- [2026-11-24-2125-rename-to-blot](changelog/2026-11-24-2125-rename-to-blot.md) — Screen Scratch renamed to Blot
 - [2026-11-24-2037-editing-tools](changelog/2026-11-24-2037-editing-tools.md) — partial eraser, lasso select, shapes, lines and arrows, text boxes
 - [2026-11-24-2043-app-shell](changelog/2026-11-24-2043-app-shell.md) — library, editor, storage and canvas wired into one app
 - [2026-11-24-2023-export](changelog/2026-11-24-2023-export.md) — PNG, PDF and SVG export with share and save to folder

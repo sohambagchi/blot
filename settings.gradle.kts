@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "screen-scratch"
+rootProject.name = "blot"
 include(":core", ":app")

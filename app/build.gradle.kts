@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "app.screenscratch"
+    namespace = "app.blot"
     // Both must match the build SDK in flake.nix: the Nix store SDK is read-only, so AGP
     // cannot download a missing platform or build-tools. AndroidX needs compileSdk >= 37.1.
     compileSdk {
@@ -13,11 +13,11 @@ android {
     buildToolsVersion = "37.0.0"
 
     defaultConfig {
-        applicationId = "app.screenscratch"
+        applicationId = "app.blot"
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.11.3"
+        versionName = "0.12.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
