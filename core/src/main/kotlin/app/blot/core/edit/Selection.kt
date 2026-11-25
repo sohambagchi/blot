@@ -115,6 +115,30 @@ object Selection {
         }
     }
 
+    /**
+     * True when the capsule from ([ax], [ay]) to ([bx], [by]) with radius [r] touches [e]'s ink:
+     * a stroke's filled [outline], a shape's outline or fill, or a line's path. Text boxes and
+     * images are not ink and are never touched.
+     */
+    fun inkTouches(e: Element, ax: Float, ay: Float, bx: Float, by: Float, r: Float, outline: (Stroke) -> FloatArray): Boolean =
+        when (e) {
+            is Stroke -> {
+                val xy = outline(e)
+                PlaneMath.capsuleTouchesPolygon(xy, xy.size / 2, ax, ay, bx, by, r)
+            }
+            is Shape -> {
+                val pl = shapeOutline(e)
+                pl.any { PlaneMath.polylineNear(it.xy, it.count, it.closed, ax, ay, bx, by, e.width / 2f + r) } ||
+                    // A capsule that crosses no edge but touches the fill lies wholly inside it.
+                    (e.fill != null && pl.any { it.closed && PlaneMath.insideEvenOdd(it.xy, it.count, ax, ay) })
+            }
+            is Line -> {
+                val xy = drawnOf(e).lines[0]
+                PlaneMath.polylineNear(xy, xy.size / 2, false, ax, ay, bx, by, e.width / 2f + r)
+            }
+            is TextBox, is Image -> false
+        }
+
     /** The topmost element of [elements] that a tap at ([x], [y]) lands on; see [hits]. */
     fun pick(elements: List<Element>, x: Float, y: Float, tol: Float, outline: (Stroke) -> FloatArray): Element? =
         elements.lastOrNull { hits(it, x, y, tol, outline) }

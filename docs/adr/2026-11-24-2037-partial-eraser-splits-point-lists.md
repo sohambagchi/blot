@@ -1,6 +1,6 @@
 # Partial eraser splits strokes' point lists
 
-**Status:** accepted
+**Status:** accepted; amended by [2026-11-25-0002-eraser-takes-shapes-and-lines-whole](2026-11-25-0002-eraser-takes-shapes-and-lines-whole.md)
 
 **Context:** The eraser can take whole strokes or only the parts it passes over. Skia rasterises `PorterDuff.CLEAR` in PDFs, so erasing has to change geometry, and strokes are stored as raw samples ([2026-11-24-1928-note-json-format](2026-11-24-1928-note-json-format.md)).
 **Decision:**

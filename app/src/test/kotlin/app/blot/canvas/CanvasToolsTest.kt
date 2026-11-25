@@ -1,5 +1,6 @@
 package app.blot.canvas
 
+import app.blot.core.model.Point
 import app.blot.core.model.Argb
 import app.blot.core.model.Arrowhead
 import app.blot.core.model.Element
@@ -53,6 +54,22 @@ class CanvasToolsTest {
     }
 
     // Partial eraser.
+
+    @Test
+    fun bothEraserModesTakeShapesAndLinesWhole() {
+        for (mode in listOf(EraserMode.WHOLE_STROKE, EraserMode.PARTIAL)) {
+            val shape = Shape("s", ShapeKind.TRIANGLE, Rect(0f, 0f, 100f, 100f), Argb.BLACK, 2f)
+            val line = Line("l", listOf(Point(0f, 150f), Point(200f, 150f)), Argb.BLACK, 2f, endArrow = Arrowhead.TRIANGLE)
+            val c = controller(shape, line, hStroke("b", 0f, 200f, 300f))
+            val before = c.elements
+            c.eraserMode = mode
+            c.beginErase()
+            assertEquals(mode.name, 2, c.eraseAlong(50f, -10f, 50f, 160f, 4f))
+            c.endErase()
+            assertEquals(mode.name, listOf("b"), c.ids)
+            c.assertUndoRedo(before)
+        }
+    }
 
     @Test
     fun partialEraseSplitsAStrokeAndUndoesAsOneStep() {

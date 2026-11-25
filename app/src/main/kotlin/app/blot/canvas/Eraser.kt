@@ -1,6 +1,7 @@
 package app.blot.canvas
 
 import app.blot.core.edit.PlaneMath
+import app.blot.core.edit.Selection
 import app.blot.core.model.Element
 import app.blot.core.model.Rect
 import app.blot.core.model.Stroke
@@ -8,14 +9,15 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Whole-stroke eraser geometry. The eraser sweeps a capsule (a segment with a radius) between
- * consecutive samples; a stroke is erased when the capsule touches its filled outline.
+ * Eraser geometry. The eraser sweeps a capsule (a segment with a radius) between consecutive
+ * samples; an element is erased when the capsule touches its ink ([Selection.inkTouches]).
  */
 object Eraser {
     /**
-     * Ids of the strokes in [elements] whose outline the capsule from ([ax], [ay]) to ([bx], [by])
-     * with radius [r] touches, in stacking order. Other element types are never erased. Bounds
-     * are checked first; only strokes whose bounds meet the capsule's are tested exactly.
+     * Ids of the strokes, shapes and lines in [elements] whose ink the capsule from ([ax], [ay]) to
+     * ([bx], [by]) with radius [r] touches, in stacking order. Text boxes and images are never
+     * erased. Bounds are checked first; only elements whose bounds meet the capsule's are tested
+     * exactly.
      */
     fun hits(
         elements: List<Element>,
@@ -25,9 +27,8 @@ object Eraser {
         val box = Rect.fromEdges(min(ax, bx), min(ay, by), max(ax, bx), max(ay, by)).inflate(r)
         val out = ArrayList<String>()
         for (e in elements) {
-            if (e !is Stroke || !e.bounds.intersects(box)) continue
-            val xy = outline(e)
-            if (touches(xy, xy.size / 2, ax, ay, bx, by, r)) out += e.id
+            if (!e.bounds.intersects(box)) continue
+            if (Selection.inkTouches(e, ax, ay, bx, by, r, outline)) out += e.id
         }
         return out
     }

@@ -1,11 +1,15 @@
 package app.blot.canvas
 
 import app.blot.core.model.Argb
+import app.blot.core.model.Line
+import app.blot.core.model.LineRoute
+import app.blot.core.model.Point
 import app.blot.core.model.Rect
 import app.blot.core.model.Shape
 import app.blot.core.model.ShapeKind
 import app.blot.core.model.Stroke
 import app.blot.core.model.StrokePoint
+import app.blot.core.model.TextBox
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -69,13 +73,33 @@ class EraserTest {
     }
 
     @Test
-    fun onlyStrokesAreErasedInStackingOrder() {
+    fun strokesShapesAndLinesAreErasedInStackingOrder() {
         val outlines = OutlineCache()
         val a = stroke("a", 0f, 50f, 100f, 50f)
         val shape = Shape("s", ShapeKind.RECTANGLE, Rect(0f, 0f, 100f, 100f), Argb.BLACK, 2f)
+        val line = Line("l", listOf(Point(0f, 70f), Point(100f, 70f)), Argb.BLACK, 2f)
         val b = stroke("b", 0f, 55f, 100f, 55f)
         val c = stroke("c", 0f, 500f, 100f, 500f)
-        val hits = Eraser.hits(listOf(a, shape, b, c), outlines::outline, 50f, 0f, 50f, 100f, 2f)
-        assertEquals(listOf("a", "b"), hits)
+        val text = TextBox("t", Rect(0f, 0f, 100f, 100f), "hi", 16f, Argb.BLACK)
+        val hits = Eraser.hits(listOf(a, shape, line, b, c, text), outlines::outline, 50f, 0f, 50f, 100f, 2f)
+        assertEquals(listOf("a", "s", "l", "b"), hits)
+    }
+
+    @Test
+    fun anOutlinedShapeIsErasedAtItsEdgeOnly() {
+        val outlines = OutlineCache()
+        val ring = Shape("r", ShapeKind.ELLIPSE, Rect(0f, 0f, 100f, 100f), Argb.BLACK, 2f)
+        assertTrue(Eraser.hits(listOf(ring), outlines::outline, 40f, 40f, 60f, 60f, 3f).isEmpty())
+        assertEquals(listOf("r"), Eraser.hits(listOf(ring), outlines::outline, 99f, 45f, 99f, 55f, 3f))
+        val filled = ring.copy(id = "f", fill = Argb.BLACK)
+        assertEquals(listOf("f"), Eraser.hits(listOf(filled), outlines::outline, 40f, 40f, 60f, 60f, 3f))
+    }
+
+    @Test
+    fun aCurvedLineIsErasedAlongItsCurveNotItsChord() {
+        val outlines = OutlineCache()
+        val curve = Line("c", listOf(Point(0f, 0f), Point(50f, 80f), Point(100f, 0f)), Argb.BLACK, 2f, route = LineRoute.CURVE)
+        assertTrue(Eraser.hits(listOf(curve), outlines::outline, 50f, -5f, 50f, 5f, 2f).isEmpty())
+        assertEquals(listOf("c"), Eraser.hits(listOf(curve), outlines::outline, 0f, 0f, 0f, 0f, 3f))
     }
 }
