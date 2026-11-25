@@ -3,6 +3,7 @@
     <application
         android:label="Screen Scratch"
         android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- Rotation and resizes are handled in-process so the canvas is not destroyed and rebuilt. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

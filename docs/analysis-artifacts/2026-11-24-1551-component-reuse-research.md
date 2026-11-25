@@ -2,7 +2,9 @@
 
 **Question:** Which existing open-source components can we reuse for the pen-notes app without compromising requirements or pulling in unneeded features, and where should we write our own (citing the source we learned from)?
 
-**Answer (proposed, pending review):** Reuse a few small platform libraries: graphics-core, input-motionprediction, commonmark-java and kotlinx-serialization. Write our own stroke engine, eraser, selection, markdown renderer, SVG writer, colour wheel and storage layer. These are each a few hundred lines, and the best references are MIT/Apache code we can port with a citation. Keep Jetpack Ink as a fallback if our strokes look worse than its `pressurePen`.
+**Answer:** Reuse a few small platform libraries: graphics-core, input-motionprediction, commonmark-java and kotlinx-serialization. Write our own stroke engine, eraser, selection, markdown renderer, SVG writer, colour wheel and storage layer. These are each a few hundred lines, and the best references are MIT/Apache code we can port with a citation. Keep Jetpack Ink as a fallback if our strokes look worse than its `pressurePen`.
+
+Agreed 2026-11-24 in the `2026-11-24-1742-*` ADRs (see [INDEX](../INDEX.md)), except storage: notes go through SAF, not all-files access.
 
 Checked 2026-11-24. Items marked *unverified* still need checking on the real TB-J616F.
 

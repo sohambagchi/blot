@@ -17,12 +17,12 @@
           allowUnfree = true;
         };
       };
-      emu = android-emu.packages.${system};
+      # emu-up defaults to 35 (phone); emu-tablet to 31, the TB-J616F's Android 12. EMU_API overrides.
+      emu = android-emu.lib.mkEmu { inherit system; apiLevels = [ "35" "31" ]; };
 
-      # Build SDK for Gradle. Kept separate from android-emu's SDK (which is pinned to
-      # platform 35 / build-tools 35 and carries the emulator) because current AGP and
-      # AndroidX need a newer compileSdk, and the Nix store SDK is read-only so AGP
-      # cannot install what it is missing.
+      # Gradle's SDK, separate from android-emu's emulator SDK; see
+      # docs/adr/2026-11-24-1551-separate-build-sdk-from-emulator-sdk.md
+      # Both versions must match compileSdk and buildToolsVersion in app/build.gradle.kts.
       buildToolsVersion = "37.0.0";
       buildSdk = (pkgs.androidenv.composeAndroidPackages {
         platformVersions = [ "37.2" ];
@@ -34,13 +34,14 @@
       }).androidsdk;
       sdkRoot = "${buildSdk}/libexec/android-sdk";
 
-      # A virtual device shaped like the Lenovo TB-J616F (2000x1200, landscape-native).
-      # Density 240 is an assumption until checked with `adb shell wm density` on the device.
+      # Boots an AVD shaped like the Lenovo TB-J616F: 2000x1200 px, landscape-native.
+      # Density 240 (1333x800 dp) is assumed; the real tablet's `wm density` is unmeasured.
       emu-tablet = pkgs.writeShellApplication {
         name = "emu-tablet";
         runtimeInputs = [ emu.sdk emu.emu-up pkgs.gnused pkgs.coreutils ];
         text = ''
-          export EMU_NAME="''${EMU_NAME:-tab-35}"
+          export EMU_API="''${EMU_API:-31}"
+          export EMU_NAME="''${EMU_NAME:-tab-$EMU_API}"
           export EMU_PORT="''${EMU_PORT:-5556}"
           # avdmanager otherwise falls back to $XDG_CONFIG_HOME/.android, where emu-up won't look.
           export ANDROID_AVD_HOME="''${ANDROID_AVD_HOME:-$HOME/.android/avd}"
@@ -48,9 +49,9 @@
           export ANDROID_SDK_ROOT="${emu.sdk}/libexec/android-sdk"
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
           if [[ ! -f "$avd_home/$EMU_NAME.ini" ]]; then
-            echo "Creating AVD $EMU_NAME (2000x1200 @ 240dpi)"
+            echo "Creating AVD $EMU_NAME (API $EMU_API, 2000x1200 @ 240dpi)"
             echo no | avdmanager create avd -n "$EMU_NAME" \
-              -k "system-images;android-35;google_apis;x86_64" -d pixel_tablet >/dev/null
+              -k "system-images;android-$EMU_API;google_apis;x86_64" -d pixel_tablet >/dev/null
             cfg="$avd_home/$EMU_NAME.avd/config.ini"
             set_cfg() { sed -i "/^$1=/d" "$cfg"; echo "$1=$2" >> "$cfg"; }
             set_cfg hw.lcd.width 2000
@@ -71,7 +72,6 @@
         packages = [
           buildSdk
           pkgs.jdk21
-          pkgs.gradle # only to (re)generate the wrapper; builds use ./gradlew
           emu.emu-up emu.emu-down emu.emu-shot
           emu-tablet
         ];
