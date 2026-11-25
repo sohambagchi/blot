@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import app.screenscratch.core.FORMAT_VERSION
+import app.screenscratch.canvastest.CanvasTestActivity
 import app.screenscratch.pentest.PenTestActivity
 import app.screenscratch.ui.preview.UiPreviewActivity
 
@@ -34,6 +35,11 @@ class MainActivity : ComponentActivity() {
                 BasicText(
                     "Pen test",
                     Modifier.clickable { startActivity(Intent(this@MainActivity, PenTestActivity::class.java)) },
+                    style = text,
+                )
+                BasicText(
+                    "Canvas test",
+                    Modifier.clickable { startActivity(Intent(this@MainActivity, CanvasTestActivity::class.java)) },
                     style = text,
                 )
             }

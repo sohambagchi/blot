@@ -21,6 +21,10 @@
             android:name=".ui.preview.UiPreviewActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode" />
+        <activity
+            android:name=".canvastest.CanvasTestActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
