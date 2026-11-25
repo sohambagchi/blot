@@ -1,5 +1,6 @@
 package app.blot.ui.editor
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -16,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import app.blot.ui.components.IconButton
 import app.blot.ui.components.floatingSurface
@@ -23,9 +26,10 @@ import app.blot.ui.icons.GlyphIcon
 import app.blot.ui.icons.BlotIcons
 import app.blot.ui.theme.Elevation
 import app.blot.ui.theme.Radii
+import app.blot.ui.theme.colors
 
 /**
- * The phone viewer (`Phone.dc.html`): a top bar with back, title and export, and a bottom pill
+ * The phone viewer (`Phone.dc.html`): a top bar with back, title, background and export, and a bottom pill
  * with pan, pen, lasso, text and image. Meant for viewing and light edits without a pen.
  */
 @Composable
@@ -53,6 +57,10 @@ private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions, edi
     ) {
         IconButton(BlotIcons.Back, "Back to library", actions::back)
         TitleBlock(state, actions, edit, Modifier.weight(1f))
+        IconButton(
+            BlotIcons.Background, "Background", { actions.setBackgroundPanelOpen(!state.backgroundPanelOpen) }, iconSize = 20.dp,
+            background = if (state.backgroundPanelOpen) colors.hover else Color.Transparent, selected = state.backgroundPanelOpen,
+        )
         IconButton(BlotIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp)
     }
     val pan = state.tool == Tool.Pen && state.penMode == PenMode.Hand
@@ -80,4 +88,8 @@ private fun BoxScope.PhoneBars(state: EditorUiState, actions: EditorActions, edi
         }
     }
     MessageBar(state, actions, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
+    if (state.backgroundPanelOpen) {
+        Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setBackgroundPanelOpen(false) } })
+        BackgroundPanel(state, actions, Modifier.align(Alignment.TopEnd).padding(top = 12.dp + 54.dp + 8.dp, end = 12.dp))
+    }
 }

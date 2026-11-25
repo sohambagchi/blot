@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.hardware.input.InputManager
 import android.view.InputDevice
 import app.blot.canvas.FrontBufferContent
+import app.blot.core.model.Background
+import app.blot.core.model.Pattern
 import app.blot.ui.theme.ThemeSetting
 
 /**
@@ -33,12 +35,24 @@ class AppSettings(
         get() = prefs.getString(KEY_FRONT, null)?.let { s -> FrontBufferContent.entries.firstOrNull { it.name == s } } ?: FrontBufferContent.INK_ONLY
         set(v) = prefs.edit().putString(KEY_FRONT, v.name).apply()
 
+    /** The background pattern new notes start with: the one last chosen in any note, none at first. */
+    var background: Background?
+        get() {
+            val pattern = prefs.getString(KEY_PATTERN, null)?.let { s -> Pattern.entries.firstOrNull { it.name == s } } ?: return null
+            val spacing = prefs.getFloat(KEY_SPACING, Background.defaultSpacing(pattern))
+            return if (spacing.isFinite() && spacing > 0f) Background(pattern, spacing) else Background(pattern)
+        }
+        set(v) = prefs.edit().putString(KEY_PATTERN, v?.pattern?.name ?: NO_PATTERN).putFloat(KEY_SPACING, v?.spacing ?: 0f).apply()
+
     companion object {
         const val PREFS = "settings"
         private const val KEY_THEME = "theme"
         private const val KEY_SWAP = "swap_side_buttons"
         private const val KEY_PEN_ONLY = "pen_only"
         private const val KEY_FRONT = "front_buffer"
+        private const val KEY_PATTERN = "background_pattern"
+        private const val KEY_SPACING = "background_spacing"
+        private const val NO_PATTERN = "NONE"
 
         fun of(context: Context) = AppSettings(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)) {
             hasStylus(context) && context.resources.configuration.smallestScreenWidthDp >= 600

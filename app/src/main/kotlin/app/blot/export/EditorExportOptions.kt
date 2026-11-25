@@ -37,7 +37,7 @@ fun exportOptionsFor(dialog: DialogOptions, visibleArea: Rect, selection: Set<St
         range = range,
         background = background,
         dark = appDark && !dialog.lightColours,
-        dotGrid = dialog.dotGrid,
+        backgroundPattern = dialog.backgroundPattern,
         scale = dialog.scale.toFloat(),
     )
 }

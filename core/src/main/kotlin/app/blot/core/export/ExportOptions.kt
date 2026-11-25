@@ -39,7 +39,8 @@ enum class ExportBackground { PAPER, TRANSPARENT }
  *
  * @property dark draws on the dark page with the canvas's dark-mode ink transform; otherwise
  *   stored colours on the light page.
- * @property dotGrid draws the canvas dots on the paper.
+ * @property backgroundPattern draws the note's background pattern (dots, grid or ruled lines) on
+ *   the paper; a note without one draws none.
  * @property scale PNG pixels per canvas unit (dp).
  * @property margin canvas units around the content of an infinite note or a selection.
  * @property maxPixels PNG pixel budget; a larger image is exported at a smaller scale.
@@ -49,7 +50,7 @@ data class ExportOptions(
     val range: ExportRange = ExportRange.WholeNote,
     val background: ExportBackground = ExportBackground.PAPER,
     val dark: Boolean = false,
-    val dotGrid: Boolean = false,
+    val backgroundPattern: Boolean = false,
     val scale: Float = 2f,
     val margin: Float = 24f,
     val maxPixels: Long = 1L shl 25,
@@ -70,4 +71,6 @@ data class ExportPalette(
     val placeholder: Int,
     val placeholderEdge: Int,
     val dot: Int,
+    /** Grid and ruled lines. */
+    val line: Int = dot,
 )

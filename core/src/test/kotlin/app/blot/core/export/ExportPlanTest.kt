@@ -1,7 +1,9 @@
 package app.blot.core.export
 
 import app.blot.core.model.Argb
+import app.blot.core.model.Background
 import app.blot.core.model.Note
+import app.blot.core.model.Pattern
 import app.blot.core.model.PageSetup
 import app.blot.core.model.Point
 import app.blot.core.model.Rect
@@ -24,7 +26,6 @@ class ExportPlanTest {
         val plan = ExportPlan.of(note, ExportOptions(margin = 10f))
         assertEquals(Rect(0f, 10f, 410f, 450f), plan.bounds)
         assertEquals(listOf(plan.bounds), plan.sheets.map { it.rect })
-        assertEquals(Point(0f, 0f), plan.sheets[0].dotOrigin)
 
         val empty = ExportPlan.of(note.copy(elements = emptyList()), ExportOptions(margin = 10f))
         assertEquals(Rect(-10f, -10f, 21f, 21f), empty.bounds)
@@ -40,7 +41,6 @@ class ExportPlanTest {
         assertEquals(4, ExportPlan.of(note, ExportOptions()).sheets.size)
         val last = ExportPlan.of(note, ExportOptions(range = ExportRange.Pages(3, 9)))
         assertEquals(listOf(page.pageRect(3)), last.sheets.map { it.rect })
-        assertEquals(Point(0f, page.pageRect(3).top), last.sheets[0].dotOrigin)
         assertEquals(listOf("a"), last.elements.map { it.id })
         assertEquals(0, ExportPlan.of(note, ExportOptions(range = ExportRange.Pages(0, 1))).elements.size)
     }
@@ -58,10 +58,27 @@ class ExportPlanTest {
     }
 
     @Test
-    fun dotsSitInCellCentres() {
-        val dots = DotGrid.dots(Rect(0f, 0f, 56f, 30f), Point(0f, 0f)).toList()
-        assertEquals(listOf(Point(14f, 14f), Point(42f, 14f)), dots)
-        assertEquals(Point(14f, 1914f), DotGrid.dots(Rect(0f, 1900f, 20f, 20f), Point(0f, 1900f)).single())
+    fun dotsSitInCellCentresAsTheDotGridDid() {
+        val dots = Background(Pattern.DOTS)
+        val note = Note("n", created = t0, modified = t0, background = dots, elements = listOf(box("a", 0f, 0f)))
+        val plan = ExportPlan.of(note, ExportOptions(range = ExportRange.Area(Rect(0f, 0f, 56f, 30f)), backgroundPattern = true))
+        val m = plan.patternOn(plan.sheets.single()).single()
+        assertEquals(listOf(14f, 42f), m.xs.toList())
+        assertEquals(listOf(14f), m.ys.toList())
+
+        val page = PageSetup.Pages.a4(count = 2)
+        val paged = ExportPlan.of(note.copy(page = page), ExportOptions(range = ExportRange.Pages(1, 1), backgroundPattern = true))
+        val onPage = paged.patternOn(paged.sheets.single()).single()
+        assertEquals(page.pageRect(1).top + 14f, onPage.ys.first())
+        assertEquals(14f, onPage.xs.first())
+    }
+
+    @Test
+    fun theSwitchAndTheNoteBothDecideThePattern() {
+        val note = Note("n", created = t0, modified = t0, background = Background(Pattern.GRID), elements = listOf(box("a", 0f, 0f)))
+        assertTrue(ExportPlan.of(note, ExportOptions()).let { it.patternOn(it.sheets[0]) }.isEmpty())
+        assertTrue(ExportPlan.of(note.copy(background = null), ExportOptions(backgroundPattern = true)).let { it.patternOn(it.sheets[0]) }.isEmpty())
+        assertEquals(1, ExportPlan.of(note, ExportOptions(backgroundPattern = true)).let { it.patternOn(it.sheets[0]) }.size)
     }
 
     @Test

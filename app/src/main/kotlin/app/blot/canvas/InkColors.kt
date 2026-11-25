@@ -109,10 +109,20 @@ class CanvasPalette private constructor(
     val pageShadow: Int,
     val placeholder: Int,
     val placeholderEdge: Int,
+    /** A background pattern's dots: the design's `dot` token, lifted in dark mode to read on the dark page. */
+    val patternDot: Int,
+    /** A background pattern's grid and ruled lines: the design's `border` token, a step lighter than the page in dark mode. */
+    val patternLine: Int,
 ) {
     companion object {
-        val LIGHT = CanvasPalette(0xFFFFFFFF.toInt(), 0xFFE4E4E7.toInt(), 0x40000000, 0xFFEDEDED.toInt(), 0xFFBDBDBD.toInt())
-        val DARK = CanvasPalette(0xFF1E1E20.toInt(), 0xFF0F0F10.toInt(), 0x80000000.toInt(), 0xFF2C2C2E.toInt(), 0xFF5A5A5E.toInt())
+        val LIGHT = CanvasPalette(
+            0xFFFFFFFF.toInt(), 0xFFE4E4E7.toInt(), 0x40000000, 0xFFEDEDED.toInt(), 0xFFBDBDBD.toInt(),
+            0xFFD6D3CB.toInt(), 0xFFE3E0D8.toInt(),
+        )
+        val DARK = CanvasPalette(
+            0xFF1E1E20.toInt(), 0xFF0F0F10.toInt(), 0x80000000.toInt(), 0xFF2C2C2E.toInt(), 0xFF5A5A5E.toInt(),
+            0xFF3A3A40.toInt(), 0xFF323237.toInt(),
+        )
 
         fun of(dark: Boolean) = if (dark) DARK else LIGHT
     }

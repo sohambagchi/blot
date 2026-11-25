@@ -11,6 +11,7 @@ import app.blot.core.edit.SelectionEdits
 import app.blot.core.edit.Similarity
 import app.blot.core.model.Argb
 import app.blot.core.model.Arrowhead
+import app.blot.core.model.Background
 import app.blot.core.model.Element
 import app.blot.core.model.Image
 import app.blot.core.model.Note
@@ -294,22 +295,22 @@ class CanvasController(initial: Note) {
         setNote(touch(after))
     }
 
-    /** Steps back one edit. A text edit in progress is finished first, so it is the step undone. The title stays. */
+    /** Steps back one edit. A text edit in progress is finished first, so it is the step undone. The title and background stay. */
     fun undo() {
         finishTextEdit()
         gestures.cancel()
         closeSelectionMenu()
         val n = history.undo(_note.value) ?: return
-        setNote(n.copy(title = _note.value.title))
+        setNote(n.copy(title = _note.value.title, background = _note.value.background))
     }
 
-    /** Steps forward one edit. The title stays. */
+    /** Steps forward one edit. The title and background stay. */
     fun redo() {
         finishTextEdit()
         gestures.cancel()
         closeSelectionMenu()
         val n = history.redo(_note.value) ?: return
-        setNote(n.copy(title = _note.value.title))
+        setNote(n.copy(title = _note.value.title, background = _note.value.background))
     }
 
     /**
@@ -319,6 +320,15 @@ class CanvasController(initial: Note) {
     fun setTitle(title: String) {
         if (title == _note.value.title) return
         setNote(touch(_note.value.copy(title = title)))
+    }
+
+    /**
+     * Sets the background pattern, null for none. Not an undo step, so that dragging the spacing
+     * doesn't fill the history: undo and redo keep the current background, as they keep the title.
+     */
+    fun setBackground(background: Background?) {
+        if (background == _note.value.background) return
+        setNote(touch(_note.value.copy(background = background)))
     }
 
     // Selection commands. Each edit is one undo step; selection itself is not in the history.

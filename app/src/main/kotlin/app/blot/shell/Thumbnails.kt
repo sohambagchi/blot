@@ -3,6 +3,7 @@ package app.blot.shell
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import app.blot.canvas.CanvasPalette
 import app.blot.canvas.SceneRenderer
 import app.blot.core.model.Note
 import app.blot.core.model.PageSetup
@@ -108,15 +109,24 @@ object ThumbnailRenderer {
     /** Pixels per canvas unit at most, so a small scribble isn't blown up. */
     private const val MAX_SCALE = 2f
 
-    /** The thumbnail of [note] for the theme [dark], or null when it has no elements. [renderer] must be this thread's. */
-    fun render(note: Note, dark: Boolean, renderer: SceneRenderer, width: Int = WIDTH, height: Int = HEIGHT): Bitmap? {
+    /**
+     * The thumbnail of [note] for the theme [dark], or null when it has no elements. [renderer]
+     * must be this thread's. [pattern] draws the note's background pattern behind the elements.
+     */
+    fun render(note: Note, dark: Boolean, renderer: SceneRenderer, width: Int = WIDTH, height: Int = HEIGHT, pattern: Boolean = true): Bitmap? {
         if (note.elements.isEmpty()) return null
         val bounds = note.elements.map { it.bounds }.reduce(Rect::union)
         val scale = min(min((width - 2 * MARGIN) / bounds.width.coerceAtLeast(1f), (height - 2 * MARGIN) / bounds.height.coerceAtLeast(1f)), MAX_SCALE)
         val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        canvas.translate(width / 2f - bounds.centerX * scale, height / 2f - bounds.centerY * scale)
+        val ox = width / 2f - bounds.centerX * scale
+        val oy = height / 2f - bounds.centerY * scale
+        canvas.translate(ox, oy)
         canvas.scale(scale, scale)
+        if (pattern) {
+            val visible = Rect(-ox / scale, -oy / scale, width / scale, height / scale)
+            renderer.drawBackground(canvas, note, visible, scale, CanvasPalette.of(dark), ox, oy)
+        }
         for (e in note.elements) renderer.drawElement(canvas, e, dark)
         return bmp
     }

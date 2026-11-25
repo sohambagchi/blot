@@ -13,7 +13,9 @@ import app.blot.core.export.ExportOptions
 import app.blot.core.export.ExportPlan
 import app.blot.core.export.ExportRange
 import app.blot.core.export.SvgNoteWriter
+import app.blot.core.model.Background
 import app.blot.core.model.PageSetup
+import app.blot.core.model.Pattern
 import app.blot.core.model.Rect
 import app.blot.ui.editor.ExportArea
 import org.junit.Assert.assertEquals
@@ -90,8 +92,8 @@ class NoteExportTest {
 
     @Test
     fun transparentDotGridAndSelection() {
-        val note = ExportSamples.infinite()
-        val t = png(note, ExportOptions(background = ExportBackground.TRANSPARENT, dotGrid = true), "infinite-transparent-dots")
+        val note = ExportSamples.infinite().copy(background = Background(Pattern.DOTS))
+        val t = png(note, ExportOptions(background = ExportBackground.TRANSPARENT, backgroundPattern = true), "infinite-transparent-dots")
         assertEquals(0, t.getPixel(2, 2) ushr 24)
         val bounds = ExportPlan.of(note, ExportOptions()).bounds
         // A dot centre: cells start at the canvas origin.
@@ -108,10 +110,10 @@ class NoteExportTest {
 
     @Test
     fun pageNoteStacksPagesInOnePng() {
-        val note = ExportSamples.pages()
+        val note = ExportSamples.pages().copy(background = Background(Pattern.DOTS))
         val page = note.page as PageSetup.Pages
         for (dark in listOf(false, true)) {
-            val bmp = png(note, ExportOptions(dark = dark, dotGrid = true, scale = 1f), if (dark) "pages-dark" else "pages-light")
+            val bmp = png(note, ExportOptions(dark = dark, backgroundPattern = true, scale = 1f), if (dark) "pages-dark" else "pages-light")
             val palette = CanvasPalette.of(dark)
             assertEquals(ceil(page.width).toInt(), bmp.width)
             assertEquals(ceil(page.height * 2 + PageSetup.Pages.PAGE_GAP).toInt(), bmp.height)
@@ -139,8 +141,8 @@ class NoteExportTest {
     fun svgSamples() {
         val note = ExportSamples.infinite()
         val (raw, doc) = svg(note, ExportOptions(), "infinite-light")
-        svg(note, ExportOptions(dark = true, dotGrid = true), "infinite-dark")
-        svg(ExportSamples.pages(), ExportOptions(dotGrid = true), "pages-light")
+        svg(note.copy(background = Background(Pattern.DOTS)), ExportOptions(dark = true, backgroundPattern = true), "infinite-dark")
+        svg(ExportSamples.pages().copy(background = Background(Pattern.DOTS)), ExportOptions(backgroundPattern = true), "pages-light")
         assertEquals(0, doc.count("foreignObject"))
         // The image element and the markdown image are embedded; the missing image is a placeholder.
         assertEquals(2, doc.count("image"))
@@ -151,6 +153,63 @@ class NoteExportTest {
         assertTrue(raw.contains("&lt;ok&gt;"))
         assertTrue(raw.contains(">Export test</tspan>"))
         assertFalse(raw.contains("**bold**"))
+    }
+
+    @Test
+    fun pngWithEachPattern() {
+        val base = ExportSamples.pages()
+        val page = base.page as PageSetup.Pages
+        val palette = CanvasPalette.LIGHT
+        val paper = hex(palette.paper)
+        // Canvas row 1498 is a dot row (14 + 28 × 53) and lies between grid rows.
+        val y = 1498f
+        for (pattern in Pattern.entries) {
+            val note = base.copy(background = Background(pattern))
+            val bmp = png(note, ExportOptions(backgroundPattern = true), "pattern-${pattern.name.lowercase()}")
+            val bounds = ExportPlan.of(note, ExportOptions()).bounds
+            fun at(x: Float, yy: Float) = hex(bmp.at(bounds, 2f, x, yy))
+            when (pattern) {
+                Pattern.DOTS -> {
+                    assertEquals(hex(palette.patternDot), at(14f, y))
+                    assertEquals(paper, at(28f, y))
+                }
+                Pattern.GRID -> {
+                    assertEquals(hex(palette.patternLine), at(28f, y))
+                    assertEquals(paper, at(42f, y))
+                    assertEquals("no line on the page edge", paper, at(0f, y))
+                }
+                Pattern.RULED -> {
+                    assertEquals("the first rule is one spacing below the top", hex(palette.patternLine), at(600f, 45f))
+                    assertEquals(paper, at(600f, 20f))
+                    assertEquals(paper, at(600f, page.height - 20f))
+                    assertEquals(paper, at(28f, y))
+                }
+            }
+            val plain = png(note, ExportOptions(), "pattern-${pattern.name.lowercase()}-off")
+            assertEquals(paper, hex(plain.at(bounds, 2f, 28f, y)))
+            assertEquals(paper, hex(plain.at(bounds, 2f, 14f, y)))
+        }
+    }
+
+    @Test
+    fun svgWithEachPatternIsWellFormed() {
+        for (pattern in Pattern.entries) {
+            for (paged in listOf(false, true)) {
+                val note = (if (paged) ExportSamples.pages() else ExportSamples.infinite()).copy(background = Background(pattern, 32f))
+                val name = "pattern-${pattern.name.lowercase()}-${if (paged) "pages" else "infinite"}"
+                val (raw, doc) = svg(note, ExportOptions(backgroundPattern = true), name)
+                val sheets = if (paged) 2 else 1
+                if (pattern == Pattern.DOTS) {
+                    assertEquals(sheets, doc.count("pattern"))
+                    assertTrue(raw.contains("width=\"32\" height=\"32\""))
+                } else {
+                    assertEquals(0, doc.count("pattern"))
+                    assertTrue(name, raw.contains("stroke=\"#E3E0D8\""))
+                }
+                val (_, none) = svg(note, ExportOptions(), "$name-off")
+                assertEquals(0, none.count("pattern"))
+            }
+        }
     }
 
     @Test
@@ -169,6 +228,7 @@ class NoteExportTest {
         assertEquals(3f, png.scale)
         assertFalse("light colours on", png.dark)
         assertFalse(exportOptionsFor(DialogOptions(lightColours = false), visible, emptySet(), appDark = false).dark)
+        assertTrue(exportOptionsFor(DialogOptions(backgroundPattern = true), visible, emptySet(), appDark = false).backgroundPattern)
     }
 
     @Test

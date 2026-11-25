@@ -205,6 +205,7 @@ class AppModel(
             onPenOnlyChanged = { settings.penOnly = it },
             onSaveFailed = { if (it is SecurityException) updateFolder(folder.state()) },
             screenPageSize = { screenSizeDp() },
+            onBackgroundChanged = { settings.background = it },
         )
         library = library.copy(cardMenu = null, renaming = null, newNoteOpen = false, settingsOpen = false)
         screen = Screen.Editor(s)
@@ -307,7 +308,7 @@ class AppModel(
         if (opening || screen != Screen.Library) return
         opening = true
         library = library.copy(newNoteOpen = false)
-        val note = CanvasController.newNote(CanvasEditor.pageSetup(kind, screen = screenSizeDp()))
+        val note = CanvasController.newNote(CanvasEditor.pageSetup(kind, screen = screenSizeDp())).copy(background = settings.background)
         main.launch {
             try {
                 val (store, id) = withStore {
@@ -377,7 +378,7 @@ class AppModel(
                 library = library.copy(
                     exporting = e.copy(
                         subtitle = listOf(card.title, CanvasEditor.pageLabel(note.page)).joinToString(" · "),
-                        info = e.info.copy(areaSizes = sizes),
+                        info = e.info.copy(areaSizes = sizes, pattern = note.background?.pattern),
                     ),
                 )
                 renderExportPreview(id)
@@ -398,7 +399,7 @@ class AppModel(
                 withStore { store ->
                     val images = NoteAssetImages(read = { store.readAsset(NoteId(id), it) }, launch = {})
                     val renderer = SceneRenderer(OutlineCache(), MarkdownTextBoxRenderer(images, darkNow), AssetImages { ref, _ -> images.loadNow(ref) })
-                    ThumbnailRenderer.render(note, darkNow, renderer, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+                    ThumbnailRenderer.render(note, darkNow, renderer, PREVIEW_WIDTH, PREVIEW_HEIGHT, pattern = false)
                 }
             } catch (e: CancellationException) {
                 throw e

@@ -21,7 +21,7 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
- * Draws a [Note] with plain `android.graphics`: background, pages, then elements in stacking
+ * Draws a [Note] with plain `android.graphics`: background, pages, pattern, then elements in stacking
  * order, skipping elements whose bounds miss the view. One instance per drawing thread: it keeps
  * `Path`s and paints that must not be shared; [outlines] may be shared.
  */
@@ -42,6 +42,7 @@ class SceneRenderer(
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val scratchPath = Path()
     private val rectF = RectF()
+    private val pattern = PatternPainter()
 
     /** Elements drawn by the latest [draw]; for tests and stats. */
     var lastDrawnCount = 0
@@ -67,6 +68,7 @@ class SceneRenderer(
         canvas.translate(viewport.offsetX, viewport.offsetY)
         canvas.scale(viewport.scale, viewport.scale)
         if (page is PageSetup.Pages) drawPages(canvas, page, visible, palette)
+        drawBackground(canvas, note, visible, viewport.scale, palette, viewport.offsetX, viewport.offsetY)
         var drawn = 0
         for (e in note.elements) {
             if (preview != null && e.id in preview.hidden) continue
@@ -101,6 +103,26 @@ class SceneRenderer(
             val r = pages.pageRect(i)
             canvas.drawRect(r.left, r.top, r.right, r.bottom, shadow)
             canvas.drawRect(r.left, r.top, r.right, r.bottom, fill)
+        }
+    }
+
+    /**
+     * Draws [note]'s background pattern where it meets [visible], into [canvas] in canvas units at
+     * [pxPerUnit] pixels per unit, with the canvas origin at pixel ([originX], [originY]) so lines
+     * land on whole pixels. Never goes through the ink colour transform.
+     */
+    fun drawBackground(
+        canvas: Canvas,
+        note: Note,
+        visible: app.blot.core.model.Rect,
+        pxPerUnit: Float,
+        palette: CanvasPalette,
+        originX: Float = Float.NaN,
+        originY: Float = Float.NaN,
+    ) {
+        val bg = note.background ?: return
+        for (m in pattern.marks(bg, note.page, visible, pxPerUnit)) {
+            pattern.draw(canvas, m, pxPerUnit, palette.patternDot, palette.patternLine, originX, originY)
         }
     }
 

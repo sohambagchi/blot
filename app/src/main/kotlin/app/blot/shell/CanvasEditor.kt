@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.IntSize
 import app.blot.canvas.CanvasController
 import app.blot.canvas.pagesBounds
 import app.blot.core.model.Argb
+import app.blot.core.model.Background
 import app.blot.core.model.Note
 import app.blot.core.model.Orientation
 import app.blot.core.model.PageSetup
@@ -41,6 +42,7 @@ import app.blot.core.model.ShapeKind as ModelShape
  * @param onExport runs an export of the current note with the dialog's options.
  * @param onPenOnlyChanged the "Pen only" toggle changed; it is remembered per device.
  * @param screenPageSize the size in dp of a new screen-sized page.
+ * @param onBackgroundChanged the note's background pattern was changed in the panel; new notes start with the latest.
  */
 class CanvasEditor(
     val controller: CanvasController,
@@ -51,9 +53,11 @@ class CanvasEditor(
     private val onPenOnlyChanged: (Boolean) -> Unit = {},
     private val onExportOpened: () -> Unit = {},
     private val screenPageSize: () -> Pair<Float, Float> = { 1280f to 800f },
+    private val onBackgroundChanged: (Background?) -> Unit = {},
 ) : InMemoryEditor(initial, autoCollapse, onBack, { onExport(it, ExportTarget.Folder) }, { onExport(it, ExportTarget.Share) }) {
 
     private var page by mutableStateOf(controller.note.value.page)
+    private var noteBackground by mutableStateOf(controller.note.value.background)
 
     /** The canvas view's size in pixels, for the visible-area export size. */
     var canvasSizePx: IntSize = IntSize.Zero
@@ -83,12 +87,14 @@ class CanvasEditor(
                 pageKind = pageKind(p),
                 pageCount = (p as? PageSetup.Pages)?.count ?: 1,
                 pageLandscape = (p as? PageSetup.Pages)?.orientation == Orientation.LANDSCAPE,
+                background = noteBackground,
             )
         }
 
     /** The note changed (an edit, undo or redo); call for every new value of [CanvasController.note]. */
     fun noteChanged(note: Note) {
         page = note.page
+        noteBackground = note.background
         if (note.title != state.noteTitle) state = state.copy(noteTitle = note.title)
     }
 
@@ -203,7 +209,7 @@ class CanvasEditor(
     override fun setExportOpen(open: Boolean) {
         super.setExportOpen(open)
         if (!open) return
-        state = state.copy(exportInfo = state.exportInfo.copy(areaSizes = areaSizes()))
+        state = state.copy(exportInfo = state.exportInfo.copy(areaSizes = areaSizes(), pattern = controller.note.value.background?.pattern))
         onExportOpened()
     }
 
@@ -228,6 +234,12 @@ class CanvasEditor(
     override fun removePage() {
         val p = controller.note.value.page as? PageSetup.Pages ?: return
         if (p.count > 1) applyPage(p.copy(count = p.count - 1))
+    }
+
+    override fun setBackground(background: Background?) {
+        controller.setBackground(background)
+        noteBackground = controller.note.value.background
+        onBackgroundChanged(background)
     }
 
     private fun applyPage(p: PageSetup) {

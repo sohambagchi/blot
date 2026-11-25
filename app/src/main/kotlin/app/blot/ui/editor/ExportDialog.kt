@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import app.blot.core.model.NoteTitle
+import app.blot.core.model.Pattern
 import app.blot.ui.components.IconButton
 import app.blot.ui.components.ModalCard
 import app.blot.ui.components.OutlineButton
@@ -114,7 +116,7 @@ fun ExportSheet(
                     BasicText(exportSizeLabel(o, info.areaSizes), style = BlotType.caption.copy(color = c.muted))
                 }
             }
-            val optionsColumn: @Composable (Modifier) -> Unit = { m -> ExportOptionsColumn(o, areas, selectionAvailable, onOptions, m) }
+            val optionsColumn: @Composable (Modifier) -> Unit = { m -> ExportOptionsColumn(o, areas, selectionAvailable, info.pattern != null, onOptions, m) }
             if (stacked) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     preview()
@@ -143,6 +145,7 @@ private fun ExportOptionsColumn(
     o: ExportOptions,
     areas: List<ExportArea>,
     selectionAvailable: Boolean,
+    hasPattern: Boolean,
     set: (ExportOptions) -> Unit,
     modifier: Modifier,
 ) {
@@ -175,7 +178,12 @@ private fun ExportOptionsColumn(
             ) { set(o.copy(background = it)) }
         }
         SwitchRow("Light colours", o.lightColours, { set(o.copy(lightColours = !o.lightColours)) }, hint = "Export as it looks in light mode")
-        SwitchRow("Dot grid", o.dotGrid, { set(o.copy(dotGrid = !o.dotGrid)) }, hint = "Include the canvas dots")
+        if (hasPattern) {
+            SwitchRow(
+                "Background pattern", o.backgroundPattern, { set(o.copy(backgroundPattern = !o.backgroundPattern)) },
+                hint = "Include the note's dots, grid or lines",
+            )
+        }
     }
 }
 
@@ -185,6 +193,39 @@ private fun <T> SegmentGroup(label: String, options: List<Segment<T>>, selected:
     Column(Modifier.semantics { contentDescription = label }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BasicText(label, style = BlotType.captionStrong.copy(color = c.muted))
         Segmented(options, selected, onSelect, Modifier.fillMaxWidth())
+    }
+}
+
+/** A hint of [pattern] across the preview, at a fixed small spacing. */
+private fun DrawScope.exportPreviewPattern(pattern: Pattern, color: Color) {
+    val step = 8.dp.toPx()
+    when (pattern) {
+        Pattern.DOTS -> {
+            var y = step / 2
+            while (y < size.height) {
+                var x = step / 2
+                while (x < size.width) {
+                    drawCircle(color, 1.dp.toPx(), Offset(x, y))
+                    x += step
+                }
+                y += step
+            }
+        }
+        Pattern.GRID, Pattern.RULED -> {
+            val rule = if (pattern == Pattern.RULED) step * 1.6f else step
+            if (pattern == Pattern.GRID) {
+                var x = step
+                while (x < size.width) {
+                    drawLine(color, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
+                    x += step
+                }
+            }
+            var y = rule
+            while (y < size.height) {
+                drawLine(color, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+                y += rule
+            }
+        }
     }
 }
 
@@ -215,18 +256,8 @@ private fun ExportPreview(o: ExportOptions, info: ExportInfo, c: BlotColors) {
             } else {
                 drawRect(paper)
             }
-            if (o.dotGrid) {
-                val step = 8.dp.toPx()
-                var y = step / 2
-                while (y < size.height) {
-                    var x = step / 2
-                    while (x < size.width) {
-                        drawCircle(dot, 1.dp.toPx(), Offset(x, y))
-                        x += step
-                    }
-                    y += step
-                }
-            }
+            val pattern = info.pattern
+            if (o.backgroundPattern && pattern != null) exportPreviewPattern(pattern, dot)
         }
         info.preview?.let {
             Image(it, null, Modifier.fillMaxSize().padding(10.dp), contentScale = ContentScale.Fit)

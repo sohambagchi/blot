@@ -20,6 +20,8 @@ data class Note(
     @Serializable(with = InstantSerializer::class) val modified: Instant,
     val page: PageSetup = PageSetup.Infinite,
     val elements: List<Element> = emptyList(),
+    /** The pattern drawn under the elements, or null for a plain background. */
+    val background: Background? = null,
 ) {
     /** The element with [id], or null. Linear in the element count. */
     fun element(id: String): Element? = elements.firstOrNull { it.id == id }

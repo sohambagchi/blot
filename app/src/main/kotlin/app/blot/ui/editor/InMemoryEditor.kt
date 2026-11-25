@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.blot.core.model.Argb
+import app.blot.core.model.Background
 import app.blot.core.model.NoteTitle
 import app.blot.ui.library.PageKind
 
@@ -49,16 +50,18 @@ open class InMemoryEditor(
     override fun setPenOnly(on: Boolean) = update { copy(penOnly = on) }
     override fun undo() {}
     override fun redo() {}
-    override fun openMenu(menu: ToolMenu?) = update { copy(openMenu = menu, colourPanelOpen = if (menu != null) false else colourPanelOpen) }
-    override fun setColourPanelOpen(open: Boolean) = update { copy(colourPanelOpen = open, openMenu = null) }
+    override fun openMenu(menu: ToolMenu?) = update {
+        copy(openMenu = menu, colourPanelOpen = if (menu != null) false else colourPanelOpen, backgroundPanelOpen = if (menu != null) false else backgroundPanelOpen)
+    }
+    override fun setColourPanelOpen(open: Boolean) = update { copy(colourPanelOpen = open, openMenu = null, backgroundPanelOpen = if (open) false else backgroundPanelOpen) }
     override fun moveToolbar(placement: ToolbarPlacement) = update { copy(toolbarPlacement = placement) }
 
     override fun setToolbarCollapsed(collapsed: Boolean) {
         if (!collapsed) autoCollapse.reset()
-        update { copy(toolbarCollapsed = collapsed, openMenu = null, colourPanelOpen = false) }
+        update { copy(toolbarCollapsed = collapsed, openMenu = null, colourPanelOpen = false, backgroundPanelOpen = false) }
     }
 
-    override fun setExportOpen(open: Boolean) = update { copy(exportOpen = open, openMenu = null, colourPanelOpen = false) }
+    override fun setExportOpen(open: Boolean) = update { copy(exportOpen = open, openMenu = null, colourPanelOpen = false, backgroundPanelOpen = false) }
     override fun setExportOptions(options: ExportOptions) = update { copy(export = options) }
     override fun exportToFolder() = onExport(state.export)
     override fun share() = onShare(state.export)
@@ -67,11 +70,20 @@ open class InMemoryEditor(
     override fun resetZoom() = update { copy(zoomPercent = 100) }
 
     override fun setPageMenuOpen(open: Boolean) =
-        update { copy(pageMenuOpen = open, openMenu = if (open) null else openMenu, colourPanelOpen = if (open) false else colourPanelOpen) }
+        update {
+            copy(
+                pageMenuOpen = open, openMenu = if (open) null else openMenu, colourPanelOpen = if (open) false else colourPanelOpen,
+                backgroundPanelOpen = if (open) false else backgroundPanelOpen,
+            )
+        }
     override fun setPageKind(kind: PageKind) = update { copy(pageKind = kind) }
     override fun setPageLandscape(landscape: Boolean) = update { copy(pageLandscape = landscape) }
     override fun addPage() = update { copy(pageCount = pageCount + 1) }
     override fun removePage() = update { copy(pageCount = (pageCount - 1).coerceAtLeast(1)) }
+    override fun setBackgroundPanelOpen(open: Boolean) = update {
+        if (open) copy(backgroundPanelOpen = true, openMenu = null, colourPanelOpen = false, pageMenuOpen = false) else copy(backgroundPanelOpen = false)
+    }
+    override fun setBackground(background: Background?) = update { copy(background = background) }
     override fun dismissMessage() = update { copy(message = null) }
     override fun setTitleEditing(editing: Boolean) = update { copy(titleEditing = editing) }
     override fun setTitle(title: String) = update { copy(noteTitle = NoteTitle.clean(title), titleEditing = false) }

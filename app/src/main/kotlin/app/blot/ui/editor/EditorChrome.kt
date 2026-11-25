@@ -80,8 +80,8 @@ fun Editor(state: EditorUiState, actions: EditorActions, modifier: Modifier = Mo
 
 /**
  * The tablet editor chrome over [content]: back pill with the note title, the floating toolbar
- * with its menus and colour panel, the undo/redo/export pill, page and zoom chips with the page
- * menu, the message bar, and the export dialog. The toolbar keeps clear of the corner pills.
+ * with its menus and colour panel, the undo/redo/background/export pill with the background
+ * panel, page and zoom chips with the page menu, the message bar, and the export dialog. The toolbar keeps clear of the corner pills.
  */
 @Composable
 fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -128,6 +128,10 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
                         tint = if (state.canRedo) c.text else c.muted, enabled = state.canRedo,
                     )
                     IconButton(
+                        BlotIcons.Background, "Background", { actions.setBackgroundPanelOpen(!state.backgroundPanelOpen) }, iconSize = 20.dp,
+                        background = if (state.backgroundPanelOpen) c.hover else Color.Transparent, selected = state.backgroundPanelOpen,
+                    )
+                    IconButton(
                         BlotIcons.Share, "Export and share", { actions.setExportOpen(true) }, iconSize = 20.dp,
                         background = if (state.exportOpen) c.hover else Color.Transparent,
                     )
@@ -135,6 +139,10 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
             }
             if (state.pageMenuOpen) {
                 Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setPageMenuOpen(false) } })
+            }
+            if (state.backgroundPanelOpen && full) {
+                Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setBackgroundPanelOpen(false) } })
+                BackgroundPanel(state, actions, Modifier.align(Alignment.TopEnd).padding(top = 16.dp + 54.dp + 10.dp, end = 16.dp))
             }
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(16.dp).then(record("chips")),
