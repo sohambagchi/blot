@@ -5,6 +5,10 @@ import app.blot.ui.editor.ExportSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,8 +133,14 @@ fun Library(state: LibraryUiState, actions: LibraryActions, modifier: Modifier =
         if (menuFor != null) {
             Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setCardMenu(null) } })
         }
-        if (menuFor != null && anchor != null) {
-            AnchoredMenu(anchor) { CardMenu(menuFor, actions) }
+        val menuNote = state.notes.firstOrNull { it.id == menuFor }
+        if (menuNote != null && anchor != null) {
+            AnchoredMenu(anchor) { CardMenu(menuNote, state.moveMenu, state.folders, actions) }
+        }
+        val folderMenu = state.folders.firstOrNull { it.id != null && it.id == state.folderMenu }
+        if (folderMenu != null) {
+            Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { actions.setFolderMenu(null) } })
+            cards[folderKey(folderMenu.id!!)]?.let { AnchoredMenu(it) { FolderMenu(folderMenu, actions) } }
         }
         state.message?.let { message ->
             val dismiss by rememberUpdatedState(actions::dismissMessage)
@@ -141,6 +151,12 @@ fun Library(state: LibraryUiState, actions: LibraryActions, modifier: Modifier =
             Notice(message, dismiss, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
         }
         state.renaming?.let { id -> state.notes.firstOrNull { it.id == id } }?.let { note -> key(note.id) { RenameDialog(note, actions) } }
+        when (val d = state.folderDialog) {
+            null -> {}
+            is FolderDialog.Delete -> DeleteFolderDialog(d, actions)
+            is FolderDialog.New -> key("new") { FolderNameDialog(d, actions) }
+            is FolderDialog.Rename -> key("rename", d.id) { FolderNameDialog(d, actions) }
+        }
         state.exporting?.let { e ->
             ExportSheet(
                 subtitle = e.subtitle,
@@ -182,7 +198,7 @@ private fun TabletLibrary(
     onBounds: (String, Rect) -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
-        FolderColumn(state, actions, path, if (portrait) 220.dp else 260.dp)
+        FolderColumn(state, actions, path, if (portrait) 220.dp else 260.dp, onBounds)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             Column(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -200,8 +216,11 @@ private fun TabletLibrary(
     }
 }
 
+/** The key under which a folder row's bounds are kept beside the cards', for its menu. */
+private fun folderKey(id: String) = "folder:$id"
+
 @Composable
-private fun FolderColumn(state: LibraryUiState, actions: LibraryActions, path: String, width: Dp) {
+private fun FolderColumn(state: LibraryUiState, actions: LibraryActions, path: String, width: Dp, onBounds: (String, Rect) -> Unit) {
     val c = colors
     Column(
         Modifier
@@ -215,15 +234,29 @@ private fun FolderColumn(state: LibraryUiState, actions: LibraryActions, path: S
             BasicText("Blot", style = BlotType.brand.copy(color = c.text))
             EllipsisText(path, BlotType.monoCaption.copy(color = c.muted))
         }
-        for (f in state.folders) {
-            val on = f.id == state.selectedFolder
-            NavRow(
-                BlotIcons.Folder, f.name, onClick = { actions.selectFolder(f.id) },
-                selected = on, count = f.count.toString(),
-            )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (f in state.folders) {
+                val on = f.id == state.selectedFolder
+                val id = f.id
+                if (id == null) {
+                    NavRow(BlotIcons.Folder, f.name, onClick = { actions.selectFolder(null) }, selected = on, count = f.count.toString())
+                    continue
+                }
+                val menuOpen = state.folderMenu == id
+                NavRow(
+                    BlotIcons.Folder, f.name, onClick = { actions.selectFolder(id) },
+                    modifier = Modifier.onGloballyPositioned { onBounds(folderKey(id), it.boundsInRoot()) },
+                    selected = on, count = f.count.toString(),
+                    onLongClick = { actions.setFolderMenu(id) },
+                    menu = if (on || menuOpen) {
+                        { FolderKebab(f, menuOpen, actions) }
+                    } else {
+                        null
+                    },
+                )
+            }
+            NavRow(BlotIcons.FolderPlus, "New folder", onClick = actions::newFolder, muted = true)
         }
-        NavRow(BlotIcons.FolderPlus, "New folder", onClick = actions::newFolder, muted = true)
-        Spacer(Modifier.weight(1f))
         Column(Modifier.drawBehind { drawRect(c.border, size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx())) }.padding(top = 9.dp)) {
             NavRow(BlotIcons.Settings, "Settings", onClick = { actions.setSettingsOpen(true) }, selected = state.settingsOpen)
         }
@@ -235,20 +268,23 @@ private fun NavRow(
     glyph: Glyph,
     label: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     selected: Boolean = false,
     count: String? = null,
     muted: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    menu: (@Composable () -> Unit)? = null,
 ) {
     val c = colors
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(Radii.menuItem))
             .background(if (selected) c.selected else Color.Transparent)
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(role = Role.Button, onLongClickLabel = onLongClick?.let { "Folder actions" }, onLongClick = onLongClick, onClick = onClick)
             .semantics { this.selected = selected }
-            .padding(horizontal = 10.dp),
+            .padding(start = 10.dp, end = if (menu != null) 0.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -259,7 +295,19 @@ private fun NavRow(
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
         if (count != null) BasicText(count, style = BlotType.caption.copy(color = c.muted))
+        menu?.invoke()
     }
+}
+
+/** The kebab at the end of the selected folder's row, opening its menu like a card's. */
+@Composable
+private fun FolderKebab(folder: FolderItem, open: Boolean, actions: LibraryActions) {
+    val c = colors
+    IconButton(
+        BlotIcons.Kebab, "More actions for folder ${folder.name}", { actions.setFolderMenu(if (open) null else folder.id) },
+        size = 36.dp, iconSize = 18.dp, strokeWidth = 2.6f, tint = c.muted,
+        background = if (open) c.chip else Color.Transparent,
+    )
 }
 
 @Composable
@@ -383,29 +431,48 @@ private fun CompactLibrary(state: LibraryUiState, actions: LibraryActions, path:
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.folders, key = { it.id ?: "" }) { f ->
                     val on = f.id == state.selectedFolder
-                    val shape = RoundedCornerShape(Radii.menuItem)
-                    Box(
-                        Modifier
-                            .height(36.dp)
-                            .clip(shape)
-                            .background(if (on) c.selected else c.surface)
-                            .border(1.dp, if (on) c.selected else c.border, shape)
-                            .clickable(role = Role.Button) { actions.selectFolder(f.id) }
-                            .semantics { selected = on }
-                            .padding(horizontal = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        BasicText(
-                            "${f.name}  ${f.count}",
-                            style = (if (on) BlotType.bodyStrong else BlotType.body).copy(color = c.text),
-                        )
-                    }
+                    val id = f.id
+                    FolderChip(
+                        "${f.name}  ${f.count}", on, { actions.selectFolder(id) },
+                        onLongClick = id?.let { { actions.setFolderMenu(it) } },
+                        modifier = if (id == null) Modifier else Modifier.onGloballyPositioned { onBounds(folderKey(id), it.boundsInRoot()) },
+                    )
+                }
+                item(key = "\u0000new") {
+                    FolderChip("+ New folder", false, actions::newFolder, muted = true)
                 }
             }
             SearchField(state.query, actions::setQuery, Modifier.fillMaxWidth())
             NotesGrid(state, actions, 2, onBounds)
         }
         NewNoteLayer(state, actions)
+    }
+}
+
+/** A folder on the phone's row of chips; a long press opens its menu. */
+@Composable
+private fun FolderChip(
+    label: String,
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    muted: Boolean = false,
+) {
+    val c = colors
+    val shape = RoundedCornerShape(Radii.menuItem)
+    Box(
+        modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(if (on) c.selected else c.surface)
+            .border(1.dp, if (on) c.selected else c.border, shape)
+            .combinedClickable(role = Role.Button, onLongClickLabel = onLongClick?.let { "Folder actions" }, onLongClick = onLongClick, onClick = onClick)
+            .semantics { selected = on }
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(label, style = (if (on) BlotType.bodyStrong else BlotType.body).copy(color = if (muted) c.muted else c.text))
     }
 }
 

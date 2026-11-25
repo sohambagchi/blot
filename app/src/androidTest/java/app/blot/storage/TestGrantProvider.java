@@ -15,8 +15,9 @@ import java.io.File;
  * (it requires MANAGE_DOCUMENTS), so the instrumented tests ask this unprotected provider,
  * which lives in the same package, to grant them its tree the way the picker would.
  *
- * Methods: "reset" empties the test root; "grant" grants the caller a persistable read/write
- * prefix grant on the tree and returns it under "uri".
+ * Methods: "reset" empties the test root and turns moves on; "grant" grants the caller a
+ * persistable read/write prefix grant on the tree and returns it under "uri"; "moves" with arg
+ * "on" or "off" sets whether the documents provider can move documents.
  */
 public class TestGrantProvider extends ContentProvider {
     @Override
@@ -31,6 +32,10 @@ public class TestGrantProvider extends ContentProvider {
             case "reset":
                 TestDocumentsProvider.deleteRecursively(base);
                 if (!base.mkdirs()) throw new IllegalStateException("cannot create " + base);
+                TestDocumentsProvider.supportsMove = true;
+                return null;
+            case "moves":
+                TestDocumentsProvider.supportsMove = "on".equals(arg);
                 return null;
             case "grant":
                 Uri tree = DocumentsContract.buildTreeDocumentUri(

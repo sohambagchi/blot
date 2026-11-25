@@ -266,7 +266,7 @@ class TreeNoteStoreTest {
     }
 
     @Test
-    fun foldersThatAreNotNotesAreSkippedAndRememberedAsSuch() {
+    fun directoriesThatAreNotNotesAreFoldersOrSkipped() {
         val s = store()
         s.create(TestNotes.bytes("A", 1), NoteMeta("A", 1))
         File(rootDir, ".stfolder").mkdir()
@@ -274,9 +274,10 @@ class TreeNoteStoreTest {
         File(rootDir, "stray.txt").writeText("x")
 
         assertEquals(1, s.list().size)
+        assertEquals(listOf("Pictures"), s.folders())
         tree.reset()
         assertEquals(1, s.list().size)
-        assertEquals(mapOf("list" to 1), tree.calls)
+        assertEquals("the root, then the folder", mapOf("list" to 2), tree.calls)
     }
 
     @Test

@@ -75,4 +75,45 @@ class LibraryShotsTest {
 
     @Test @Config(qualifiers = PHONE)
     fun phone() = library("phone-light", 412, 915, false)
+
+    @Test @Config(qualifiers = LAND)
+    fun folderMenu() = library("land-light-folder-menu", 1569, 941, false) { setFolderMenu("ds") }
+
+    @Test @Config(qualifiers = LAND)
+    fun newFolderRefused() = library("land-light-new-folder-refused", 1569, 941, false) {
+        newFolder()
+        createFolder("journal")
+    }
+
+    @Test @Config(qualifiers = LAND)
+    fun renameFolderDark() = library("land-dark-rename-folder", 1569, 941, true) {
+        setFolderDialog(FolderDialog.Rename("jn", "Journal"))
+    }
+
+    @Test @Config(qualifiers = LAND)
+    fun moveTo() = library("land-light-move-to", 1569, 941, false) {
+        setCardMenu("cap")
+        setMoveMenu(true)
+    }
+
+    @Test @Config(qualifiers = LAND)
+    fun moveToDark() = library("land-dark-move-to", 1569, 941, true) {
+        moveNote("raft", null)
+        selectFolder(null)
+        setCardMenu("raft")
+        setMoveMenu(true)
+    }
+
+    @Test @Config(qualifiers = LAND)
+    fun deleteFolder() = library("land-light-delete-folder", 1569, 941, false) {
+        setFolderDialog(FolderDialog.Delete("ds", "Distributed systems", 8))
+    }
+
+    @Test @Config(qualifiers = LAND)
+    fun deleteFolderDark() = library("land-dark-delete-folder", 1569, 941, true) {
+        setFolderDialog(FolderDialog.Delete("ds", "Distributed systems", 8))
+    }
+
+    @Test @Config(qualifiers = PHONE)
+    fun phoneFolderMenu() = library("phone-light-folder-menu", 412, 915, false) { setFolderMenu("cc") }
 }

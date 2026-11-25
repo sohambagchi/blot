@@ -132,6 +132,49 @@ class AppFlowTest {
         assertEquals("Raft, day 2", note.title)
     }
 
+    @Test
+    fun aNoteMadeInAFolderSurvivesTheFolderBeingDeleted() {
+        File(context.cacheDir, "flow-test-index-3").deleteRecursively()
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithText("New folder").performClick()
+        compose.onNodeWithContentDescription("Folder name").performTextInput("Work")
+        compose.onNodeWithText("Create").performClick()
+        waitUntil(scenario) { it.app.library.selectedFolder == "Work" }
+        shot("folder-created")
+
+        compose.onNodeWithContentDescription("New note").performClick()
+        compose.onNodeWithContentDescription("New infinite canvas").performClick()
+        waitFor(scenario) { canvasView(it) }
+        compose.onNodeWithContentDescription("Note title").performTextInput("In work")
+        compose.onNodeWithContentDescription("Note title").performImeAction()
+        assertEquals("Work", read(scenario) { (it.app.screen as Screen.Editor).session.editor.uiState.folderName })
+        shot("editor-in-folder")
+        compose.onNodeWithContentDescription("Back to library").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Open In work").fetchSemanticsNodes().isNotEmpty() }
+        val store = TreeNoteStore(NoteFolder(context).tree()!!, File(context.cacheDir, "flow-test-index-3"), { NoteMeta("", 0) })
+        val id = store.list().single().id
+        assertEquals("Work", store.folderOf(id))
+
+        compose.onNodeWithContentDescription("More actions for In work").performClick()
+        compose.onNodeWithText("Move to…").performClick()
+        shot("move-to")
+        compose.onNodeWithText("Top level").performClick()
+        waitUntil(scenario) { it.app.library.notes.isEmpty() && it.app.library.folders.single { f -> f.id == "Work" }.count == 0 }
+
+        compose.onNodeWithContentDescription("More actions for folder Work").performClick()
+        compose.onNodeWithText("Delete").performClick()
+        compose.onNodeWithText("The folder is empty. Deleting it removes only the folder.").assertExists()
+        compose.onNodeWithText("Delete folder").performClick()
+        waitUntil(scenario) { it.app.library.folders.none { f -> f.id == "Work" } && it.app.library.notes.size == 1 }
+        shot("folder-deleted")
+        scenario.close()
+
+        assertEquals(listOf(id), store.list().map { it.id })
+        assertEquals(null, store.folderOf(id))
+        assertEquals(emptyList<String>(), store.folders())
+        assertEquals("In work", store.readNote(id) { NoteJson.decode(it.decodeToString()) }.value.title)
+    }
+
     private fun shot(name: String) {
         compose.waitForIdle()
         Thread.sleep(400)
