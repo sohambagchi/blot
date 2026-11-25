@@ -1,5 +1,7 @@
 import java.util.Properties
 
+fun git(vararg args: String) = providers.exec { commandLine("git", *args) }.standardOutput.asText.get().trim()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -24,8 +26,10 @@ android {
         applicationId = "app.blot"
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.19.3"
+        // The commit count, so every commit installs over the last; versionName is X.Y.Z from the
+        // newest "[X.Y.Z] ..." commit subject (version-commit).
+        versionCode = git("rev-list", "--count", "HEAD").toInt()
+        versionName = git("log", "-1", "--grep=^\\[[0-9]", "--format=%s").substringAfter("[").substringBefore("]").ifEmpty { "0.0.0" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -76,6 +80,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    if (findProject(":depot") != null) implementation(project(":depot"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.graphics.core)

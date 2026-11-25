@@ -13,6 +13,9 @@ emu-up                           # boot emu-35 (Pixel 7 profile) as emulator-555
 ./gradlew :core:test             # host-only model/geometry tests
 ./gradlew :app:testDebugUnitTest # Robolectric
 ANDROID_SERIAL=emulator-5556 ./gradlew :app:connectedDebugAndroidTest
+ANDROID_SERIAL=emulator-5556 ./gradlew :app:connectedAndroidTest -Pblot.testBuildType=shrunk   # against R8-shrunk code
+./gradlew :app:assembleRelease   # shrunk release APK
+emu-publish app/build/outputs/apk/release/app-release.apk   # publish to depot (clean tree)
 EMU_PORT=5556 emu-shot           # screenshot of the tablet emulator
 ```
 
@@ -20,7 +23,7 @@ Builds are signed with `~/.android/blot.jks`, outside the repo, so every build i
 `keytool -genkeypair -keystore ~/.android/blot.jks -alias blot -keyalg EC -groupname secp256r1 -validity 10000 -storepass blotkey -keypass blotkey -dname CN=blot`.
 An untracked `signing.properties` (`signing.store`, `signing.password`) points elsewhere; without the key, builds use the debug key.
 
-Install `app/build/outputs/apk/debug/app-debug.apk` to try a build without adb. The developer screens (pen test, canvas test, UI preview) are under Settings → long-press About.
+Install `app/build/outputs/apk/release/app-release.apk` to try a build without adb. Builds from the dev shell update themselves from depot (android-emu) once a device has enrolled with Tailscale on; builds outside it have no updater. The developer screens (pen test, canvas test, UI preview) are under Settings → long-press About.
 
 Docs live in [docs/INDEX.md](docs/INDEX.md). Open work is in [docs/TODO.md](docs/TODO.md).
 
