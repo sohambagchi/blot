@@ -32,8 +32,15 @@ interface EditorActions {
 
     /** The toolbar was dropped; [placement] is already snapped. */
     fun moveToolbar(placement: ToolbarPlacement)
-    /** The drag handle was tapped, or writing ran long enough to collapse the toolbar. */
+    /**
+     * The drag handle was tapped (collapse), the compact toolbar's arrow was tapped (expand), or
+     * writing ran long enough to collapse. Collapsing also collapses the corner pills; expanding
+     * leaves them as they are.
+     */
     fun setToolbarCollapsed(collapsed: Boolean)
+
+    /** The collapsed corner pill's arrow was tapped (false), or the pills collapse with the toolbar. */
+    fun setCornerCollapsed(collapsed: Boolean) {}
 
     fun setExportOpen(open: Boolean)
     fun setExportOptions(options: ExportOptions)

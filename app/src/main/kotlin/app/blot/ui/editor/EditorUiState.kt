@@ -138,6 +138,8 @@ data class EditorUiState(
     /** Null until the user moves the toolbar: then it sits where the design puts it for the orientation. */
     val toolbarPlacement: ToolbarPlacement? = null,
     val toolbarCollapsed: Boolean = false,
+    /** The corner pills show only Back and Undo; they collapse with the toolbar and expand with their own arrow. */
+    val cornerCollapsed: Boolean = false,
     val openMenu: ToolMenu? = null,
     val colourPanelOpen: Boolean = false,
 

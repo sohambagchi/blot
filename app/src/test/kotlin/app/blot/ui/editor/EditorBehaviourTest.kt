@@ -33,7 +33,7 @@ class EditorBehaviourTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val handle = "Toolbar handle: drag to move, tap to collapse or expand"
+    private val handle = "Toolbar handle: drag to move, tap to collapse"
 
     private fun show(editor: InMemoryEditor) {
         compose.setContent {
@@ -44,18 +44,27 @@ class EditorBehaviourTest {
     }
 
     @Test
-    fun tappingTheHandleCollapsesAndExpands() {
+    fun handleCollapsesAndEachPartExpandsWithItsOwnArrow() {
         val e = InMemoryEditor()
         show(e)
         compose.onNodeWithContentDescription("Text box").assertExists()
         compose.onNodeWithContentDescription(handle).performClick()
         assertTrue(e.state.toolbarCollapsed)
+        assertTrue(e.state.cornerCollapsed)
         compose.onNodeWithContentDescription("Text box").assertDoesNotExist()
         compose.onNodeWithContentDescription("Redo").assertDoesNotExist()
         compose.onNodeWithContentDescription("Pen tools: Pen").assertExists()
-        compose.onNodeWithContentDescription(handle).performClick()
+        // The compact toolbar has an arrow instead of the handle, so it can't be dragged.
+        compose.onNodeWithContentDescription(handle).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Expand toolbar").performClick()
         assertFalse(e.state.toolbarCollapsed)
         compose.onNodeWithContentDescription("Text box").assertExists()
+        // The corner pills stay compact until their own arrow is tapped.
+        compose.onNodeWithContentDescription("Redo").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Show redo and export").performClick()
+        assertFalse(e.state.cornerCollapsed)
+        compose.onNodeWithContentDescription("Redo").assertExists()
+        compose.onNodeWithContentDescription("Show redo and export").assertDoesNotExist()
     }
 
     @Test
@@ -107,11 +116,12 @@ class EditorBehaviourTest {
         compose.waitForIdle()
         assertTrue(e.state.toolbarCollapsed)
         compose.onNodeWithContentDescription("Text box").assertDoesNotExist()
-        // More writing, and long pauses, leave it collapsed: only the handle expands.
+        assertTrue(e.state.cornerCollapsed)
+        // More writing, and long pauses, leave it collapsed: only its arrow expands it.
         e.onWritingActivity(60_000)
         e.onWritingActivity(90_000)
         assertTrue(e.state.toolbarCollapsed)
-        compose.onNodeWithContentDescription(handle).performClick()
+        compose.onNodeWithContentDescription("Expand toolbar").performClick()
         assertFalse(e.state.toolbarCollapsed)
         // Expanding mid-spell starts a new spell rather than collapsing again at once.
         e.onWritingActivity(90_016)

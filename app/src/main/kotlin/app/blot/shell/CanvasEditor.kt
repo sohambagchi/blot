@@ -309,7 +309,7 @@ class CanvasEditor(
             val name = when (p.paper) {
                 Paper.A4 -> "A4"
                 Paper.LETTER -> "Letter"
-                Paper.SCREEN -> "Screen page"
+                Paper.SCREEN -> "Screen"
             }
             return if (p.count == 1) name else "$name · ${p.count} pages"
         }

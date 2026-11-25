@@ -26,7 +26,7 @@ open class InMemoryEditor(
      * `MotionEvent.eventTime`. Collapses the toolbar after continuous writing; never expands it.
      */
     fun onWritingActivity(nowMs: Long) {
-        if (autoCollapse.onWritingActivity(nowMs) && !state.toolbarCollapsed) {
+        if (autoCollapse.onWritingActivity(nowMs) && !(state.toolbarCollapsed && state.cornerCollapsed)) {
             setToolbarCollapsed(true)
         }
     }
@@ -55,8 +55,10 @@ open class InMemoryEditor(
 
     override fun setToolbarCollapsed(collapsed: Boolean) {
         if (!collapsed) autoCollapse.reset()
-        update { copy(toolbarCollapsed = collapsed, openMenu = null, colourPanelOpen = false) }
+        update { copy(toolbarCollapsed = collapsed, cornerCollapsed = collapsed || cornerCollapsed, openMenu = null, colourPanelOpen = false) }
     }
+
+    override fun setCornerCollapsed(collapsed: Boolean) = update { copy(cornerCollapsed = collapsed) }
 
     override fun setExportOpen(open: Boolean) = update { copy(exportOpen = open, openMenu = null, colourPanelOpen = false) }
     override fun setExportOptions(options: ExportOptions) = update { copy(export = options) }

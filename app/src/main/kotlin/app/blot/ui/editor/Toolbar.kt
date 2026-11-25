@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import app.blot.core.model.Argb
 import app.blot.ui.components.Rule
 import app.blot.ui.components.floatingSurface
+import app.blot.ui.icons.Glyph
 import app.blot.ui.icons.GlyphIcon
 import app.blot.ui.icons.BlotIcons
 import app.blot.ui.theme.Radii
@@ -139,8 +140,8 @@ internal fun ToolbarLayer(state: EditorUiState, actions: EditorActions, widthDp:
                     when (towards) {
                         Edge.Bottom -> p.place(clampX(px + (bar.width - p.width) / 2, p.width), py + bar.height + gap)
                         Edge.Top -> p.place(clampX(px + (bar.width - p.width) / 2, p.width), py - gap - p.height)
-                        Edge.Right -> p.place(px + bar.width + gap, clampY(py + bar.height - p.height, p.height))
-                        Edge.Left -> p.place(px - gap - p.width, clampY(py + bar.height - p.height, p.height))
+                        Edge.Right -> p.place(px + bar.width + gap, clampY(py + (bar.height - p.height) / 2, p.height))
+                        Edge.Left -> p.place(px - gap - p.width, clampY(py + (bar.height - p.height) / 2, p.height))
                     }
                 }
                 val anchor = current.openMenu?.let { anchors[it] }
@@ -183,30 +184,28 @@ private fun ToolBar(
 ) {
     val c = colors
     val collapsed = state.toolbarCollapsed
+    val groupButton: @Composable (ToolGroup) -> Unit = { g ->
+        val active = state.tool == g.tool
+        val open = state.openMenu == g.menu
+        ToolButton(
+            label = "${g.title}: ${g.currentName}",
+            active = active,
+            open = open,
+            onClick = { if (active) actions.openMenu(if (open) null else g.menu) else actions.selectTool(g.tool) },
+            modifier = Modifier.onGloballyPositioned { onAnchor(g.menu, it.boundsInRoot()) },
+            menuDot = if (collapsed && g.menu == ToolMenu.Pen) null else true,
+            inkDot = if (collapsed && g.menu == ToolMenu.Pen) inkForDisplay(state.color, c.dark) else null,
+        ) { tint -> GlyphIcon(g.glyph, tint) }
+    }
+    // Pen, eraser and pointer; then the colours; then shapes, lines, text and image.
     val items: @Composable () -> Unit = {
-        DragHandle(vertical, !collapsed, onToggleCollapsed, onDragStart, onDrag, onDragEnd)
-        val shown = if (collapsed) groups.take(3) else groups
-        for (g in shown) {
-            if (g.menu == ToolMenu.Shape) BarDivider(vertical)
-            val active = state.tool == g.tool
-            val open = state.openMenu == g.menu
-            ToolButton(
-                label = "${g.title}: ${g.currentName}",
-                active = active,
-                open = open,
-                onClick = { if (active) actions.openMenu(if (open) null else g.menu) else actions.selectTool(g.tool) },
-                modifier = Modifier.onGloballyPositioned { onAnchor(g.menu, it.boundsInRoot()) },
-                menuDot = if (collapsed && g.menu == ToolMenu.Pen) null else true,
-                inkDot = if (collapsed && g.menu == ToolMenu.Pen) inkForDisplay(state.color, c.dark) else null,
-            ) { tint -> GlyphIcon(g.glyph, tint) }
+        if (collapsed) {
+            ExpandArrow(if (vertical) BlotIcons.ChevronDown else BlotIcons.ChevronRight, "Expand toolbar", vertical, onToggleCollapsed)
+        } else {
+            DragHandle(vertical, true, onToggleCollapsed, onDragStart, onDrag, onDragEnd)
         }
+        for (g in groups.take(3)) groupButton(g)
         if (!collapsed) {
-            ToolButton("Text box", state.tool == Tool.Text, false, { actions.selectTool(Tool.Text) }, menuDot = null) { tint ->
-                GlyphIcon(BlotIcons.Text, tint)
-            }
-            ToolButton("Insert image", state.tool == Tool.Image, false, { actions.selectTool(Tool.Image) }, menuDot = null) { tint ->
-                GlyphIcon(BlotIcons.Image, tint)
-            }
             BarDivider(vertical)
             val names = listOf("Black", "Red", "Blue", "Green")
             QuickInk.all.forEachIndexed { i, ink ->
@@ -234,6 +233,14 @@ private fun ToolBar(
             ) {
                 GlyphIcon(chevron, c.muted, size = 18.dp, strokeWidth = 2f)
             }
+            BarDivider(vertical)
+            for (g in groups.drop(3)) groupButton(g)
+            ToolButton("Text box", state.tool == Tool.Text, false, { actions.selectTool(Tool.Text) }, menuDot = null) { tint ->
+                GlyphIcon(BlotIcons.Text, tint)
+            }
+            ToolButton("Insert image", state.tool == Tool.Image, false, { actions.selectTool(Tool.Image) }, menuDot = null) { tint ->
+                GlyphIcon(BlotIcons.Image, tint)
+            }
         }
     }
     val m = Modifier.floatingSurface(RoundedCornerShape(Radii.bar)).padding(7.dp)
@@ -251,9 +258,25 @@ private fun BarDivider(vertical: Boolean) {
 }
 
 /**
- * The drag handle: a tap collapses or expands the toolbar, a drag past the touch slop moves it.
- * Expanding happens only here, so the bar never opens under the pen mid-stroke.
+ * The compact toolbar's and corner pill's expand arrow. A button rather than a gesture, so a pen
+ * resting on it mid-stroke never expands anything.
  */
+@Composable
+internal fun ExpandArrow(glyph: Glyph, label: String, vertical: Boolean, onClick: () -> Unit) {
+    val c = colors
+    Box(
+        Modifier
+            .size(if (vertical) 44.dp else 28.dp, if (vertical) 28.dp else 44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        GlyphIcon(glyph, c.muted, size = 18.dp, strokeWidth = 2f)
+    }
+}
+
+/** The expanded toolbar's drag handle: a tap collapses the toolbar, a drag past the touch slop moves it. */
 @Composable
 private fun DragHandle(
     vertical: Boolean,
@@ -299,7 +322,7 @@ private fun DragHandle(
                 }
             }
             .semantics {
-                contentDescription = "Toolbar handle: drag to move, tap to collapse or expand"
+                contentDescription = "Toolbar handle: drag to move, tap to collapse"
                 role = Role.Button
                 stateDescription = if (expanded) "Expanded" else "Collapsed"
                 onClick { tap(); true }

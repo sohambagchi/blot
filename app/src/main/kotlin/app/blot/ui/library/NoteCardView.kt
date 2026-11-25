@@ -48,7 +48,7 @@ import app.blot.ui.theme.colors
 
 internal fun PageKind.label() = when (this) {
     PageKind.Infinite -> "Infinite canvas"
-    PageKind.Screen -> "Screen page"
+    PageKind.Screen -> "Screen"
     PageKind.A4 -> "A4"
     PageKind.Letter -> "Letter"
 }

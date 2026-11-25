@@ -93,7 +93,7 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
     Box(modifier.fillMaxSize().commitTitleOnTapElsewhere(state.titleEditing, titleEdit)) {
         content()
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            val full = !state.toolbarCollapsed
+            val full = !state.cornerCollapsed
             Row(
                 Modifier
                     .padding(16.dp)
@@ -118,6 +118,7 @@ fun EditorChrome(state: EditorUiState, actions: EditorActions, modifier: Modifie
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                if (!full) ExpandArrow(BlotIcons.ChevronLeft, "Show redo and export", vertical = false) { actions.setCornerCollapsed(false) }
                 IconButton(
                     BlotIcons.Undo, "Undo", actions::undo, iconSize = 20.dp,
                     tint = if (state.canUndo) c.text else c.muted, enabled = state.canUndo,

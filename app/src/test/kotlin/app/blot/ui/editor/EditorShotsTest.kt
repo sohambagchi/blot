@@ -52,16 +52,16 @@ class EditorShotsTest {
     fun portDark() = editor("port-dark", 941, 1569, true, base)
 
     @Test @Config(qualifiers = LAND)
-    fun landLightCollapsed() = editor("land-light-collapsed", 1569, 941, false, base.copy(toolbarCollapsed = true))
+    fun landLightCollapsed() = editor("land-light-collapsed", 1569, 941, false, base.copy(toolbarCollapsed = true, cornerCollapsed = true))
 
     @Test @Config(qualifiers = LAND)
-    fun landDarkCollapsed() = editor("land-dark-collapsed", 1569, 941, true, base.copy(toolbarCollapsed = true))
+    fun landDarkCollapsed() = editor("land-dark-collapsed", 1569, 941, true, base.copy(toolbarCollapsed = true, cornerCollapsed = true))
 
     @Test @Config(qualifiers = PORT)
-    fun portLightCollapsed() = editor("port-light-collapsed", 941, 1569, false, base.copy(toolbarCollapsed = true))
+    fun portLightCollapsed() = editor("port-light-collapsed", 941, 1569, false, base.copy(toolbarCollapsed = true, cornerCollapsed = true))
 
     @Test @Config(qualifiers = PORT)
-    fun portDarkCollapsed() = editor("port-dark-collapsed", 941, 1569, true, base.copy(toolbarCollapsed = true))
+    fun portDarkCollapsed() = editor("port-dark-collapsed", 941, 1569, true, base.copy(toolbarCollapsed = true, cornerCollapsed = true))
 
     @Test @Config(qualifiers = LAND)
     fun landColourPanel() = editor("land-light-palette", 1569, 941, false, base.copy(colourPanelOpen = true))
