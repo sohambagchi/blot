@@ -17,7 +17,7 @@ android {
         minSdk = 31 // Lenovo TB-J616F runs Android 12
         targetSdk = 37
         versionCode = 1
-        versionName = "0.1.1"
+        versionName = "0.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -42,6 +42,9 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.gfm.strikethrough)
+    implementation(libs.commonmark.ext.task.list.items)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
